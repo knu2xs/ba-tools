@@ -16,7 +16,7 @@ setuptools.setup(
     license='Apache 2.0',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/knu2xs/geoai-retail',
+    url='https://github.com/knu2xs/ba-tools',
     packages=setuptools.find_packages(),
     install_requires=requirements,
     classifiers=[
