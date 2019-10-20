@@ -8,7 +8,7 @@ with open('requirements.txt') as reqs:
 
 setuptools.setup(
     name='ba_tools',
-    version='0.6',
+    version='0.6.1',
     author='Joel McCune',
     author_email='jmccune@esri.com',
     description='Feature engineering using ArcGIS Pro with Business Analyst for using quantitative Geography '
