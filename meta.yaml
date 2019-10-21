@@ -3,7 +3,7 @@ package:
   version: "0.6.1"
 
 source:
-  path: ./src
+  path: ./
 
 build:
   script: python setup.py install
@@ -19,6 +19,10 @@ requirements:
     - arcgispro
     - arcgis>=1.6
     - scikit-learn
+
+test:
+  imports:
+    - ba_tools
 
 about:
   home: https://github.com/knu2xs/ba-tools
