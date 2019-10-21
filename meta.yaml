@@ -3,26 +3,23 @@ package:
   version: "0.6.1"
 
 source:
-  path: ../src
+  path: ./src
 
 requirements:
   build:
-    - python>=3.5
+    - python>=3.6
     - setuptools
   run:
     - requests
-    - numpy=1.16
+    - numpy
     - pandas
     - arcgispro
     - arcgis>=1.6
     - scikit-learn
 
-test:
-  imports:
-      - ba_tools
-
 about:
   home: https://github.com/knu2xs/ba-tools
   license: Apache 2.0
+  license_file: LICENSE
   summary: "Address business challenges using quantitative geographic and machine learning methods."
   doc_source_url: https://github.com/knu2xs/ba-tools/blob/master/README.md
