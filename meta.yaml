@@ -9,15 +9,13 @@ build:
   script: python setup.py install
 
 requirements:
-  build:
-    - python>=3.6
-    - setuptools
   run:
+    - python>=3.6
     - requests
-    - numpy
+    - numpy==1.16.2
     - pandas
     - arcgispro
-    - arcgis>=1.6
+    - arcgis>=1.6.2
     - scikit-learn
 
 test:

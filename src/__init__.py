@@ -1,4 +1,4 @@
-__title__ = 'geoai_retail'
+__title__ = 'ba_tools'
 __version__ = '0.1.0'
 __author__ = 'Esri'
 __license__ = 'Apache 2.0'
