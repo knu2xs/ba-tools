@@ -7,8 +7,8 @@ with open('requirements.txt') as reqs:
     requirements = reqs.read().splitlines()
 
 setuptools.setup(
-    name='ba_tools',
-    version='0.6.1',
+    name='ba-tools',
+    version='0.6.3',
     author='Joel McCune',
     author_email='jmccune@esri.com',
     description='Feature engineering using ArcGIS Pro with Business Analyst for using quantitative Geography '
@@ -17,11 +17,18 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/knu2xs/ba-tools',
-    packages=setuptools.find_packages(),
-    install_requires=requirements,
+    packages=['ba_tools'],
+    install_requires=[
+        'requests',
+        'numpy',
+        'pandas',
+        # 'arcgis>=1.6.2',
+        'scikit-learn'
+    ],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
+        'Programming Language :: Python :: 3 :: Only',
         'Programming Language :: Python :: 3.6',
         'License :: OSI Approved :: MIT License',
         'Operating System :: Microsoft :: Windows',

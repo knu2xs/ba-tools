@@ -342,20 +342,16 @@ class BaData:
         :param business_layer:
         :return:
         """
-        # get a list of NAICS codes in the original business layer to use for selecting businesses
+        # get a list of the NAICS codes in the original business layer to use for selecting businesses
         naics_code_lst = set(r[0] for r in arcpy.da.SearchCursor(business_layer, 'NAICS'))
         naics_sql = ' OR '.join(f"NAICS = '{naics}'" for naics in naics_code_lst)
 
-        # get a list of existing business ids and use for exclusion
-        existing_locnum_lst = [r[0] for r in arcpy.da.SearchCursor(business_layer, 'LOCNUM')]
-        existing_sql = ' AND '.join([f"LOCNUM <> '{locnum}'" for locnum in existing_locnum_lst])
-
-        # combine the naics selection and locnum exclusion
-        sql = f"{naics_sql} AND ({existing_sql})"
-
         # create the layer and apply the query
         comp_lyr = ba_data.layer_businesses
-        comp_lyr.definitionQuery = sql
+        comp_lyr.definitionQuery = naics_sql
+
+        # deselect the brand business locations
+        arcpy.management.SelectLayerByLocation(comp_lyr, 'ARE_IDENTICAL_TO', business_layer, 'REMOVE_FROM_SELECTION')
 
         return comp_lyr
 

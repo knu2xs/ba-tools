@@ -1,26 +1,25 @@
 package:
   name: ba-tools
-  version: "0.6.1"
+  version: "0.6.3"
 
 source:
   path: ./
 
 build:
-  script: python setup.py install
+  script: python setup.py install --single-version-externally-managed --record=record.txt
 
 requirements:
+  build:
+    - python>=3.6
+    - setuptools
   run:
     - python>=3.6
     - requests
-    - numpy==1.16.2
+    - numpy
     - pandas
     - arcgispro
-    - arcgis>=1.6.2
+    - arcgis>=1.6.1
     - scikit-learn
-
-test:
-  imports:
-    - ba_tools
 
 about:
   home: https://github.com/knu2xs/ba-tools
