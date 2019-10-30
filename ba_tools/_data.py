@@ -395,16 +395,16 @@ class BaData:
 
         # collect any raw scalar fields
         uncalc_ele_fields = coll_root.find('./Calculators/Demographic/Fields')
-        if uncalc_ele_fields:
+        if uncalc_ele_fields is not None:
             fld_lst.append([(field_ele.attrib['Name'], field_ele.attrib['Alias'])
                            for field_ele in uncalc_ele_fields.findall('Field')
                             if not _is_hidden(field_ele)])
 
         # collect any calculated field types
         calc_ele_fields = coll_root.find('./Calculators/Demographic/CalculatedFields')
-        if calc_ele_fields:
+        if calc_ele_fields is not None:
 
-            # since there are two types of calcualted fields, account for this
+            # since there are two types of calculated fields, account for this
             for field_type in ['PercentCalc', 'Script']:
                 single_fld_lst = [(field_ele.attrib['Name'], field_ele.attrib['Alias'])
                                   for field_ele in calc_ele_fields.findall(field_type)

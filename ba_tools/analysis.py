@@ -76,8 +76,8 @@ def get_master_dataframe(origin_geography_layer: arcpy._mp.Layer, origin_id_fiel
         try:
             logger.info(f'Starting to enrich {origin_geography_layer}.')
             enrich_df = enrich_all(origin_geography_layer, id_field=origin_id_field)
-            enrich_df.columns = ['origin_id' if c == origin_id_field else c for c in
-                                 enrich_df.columns]
+            enrich_df.rename({origin_id_field: 'origin_id'}, axis=1, inplace=True)
+            enrich_df.set_index('origin_id', drop=True, inplace=True)
             enrich_df.to_csv(str(enrich_all_out))
             logger.info(
                 f'Successfully enriched origin geographies. The output is located at {str(enrich_all_out)}.')
@@ -86,6 +86,7 @@ def get_master_dataframe(origin_geography_layer: arcpy._mp.Layer, origin_id_fiel
             logger.error(f'Failed to enrich {origin_geography_layer}.\n{e}')
 
     else:
+        enrich_df = pd.read_csv(enrich_all_out)
         logger.info(f'Enriched origin geographies already exist at {str(enrich_all_out)}.')
 
     # create a nearest table for all store locations
@@ -96,6 +97,7 @@ def get_master_dataframe(origin_geography_layer: arcpy._mp.Layer, origin_id_fiel
                 origin_geography_layer, origin_id_field, brand_location_layer, brand_id_field,
                 network_dataset=data.usa_network_dataset, destination_count=destination_count
             )
+            nearest_brand_df.set_index('origin_id', drop=True, inplace=True)
             nearest_brand_df.to_csv(str(nearest_brand_out))
             logger.info('Successfully solved closest store locations.')
 
@@ -103,6 +105,7 @@ def get_master_dataframe(origin_geography_layer: arcpy._mp.Layer, origin_id_fiel
             logger.error(f'Failed to solve closest stores.\n{e}')
 
     else:
+        nearest_brand_df = pd.read_csv(nearest_brand_out, index_col=0)
         logger.info(f'Closest store solution already exists at {str(nearest_brand_out)}.')
 
     # create a nearest table for all competition locations
@@ -113,6 +116,7 @@ def get_master_dataframe(origin_geography_layer: arcpy._mp.Layer, origin_id_fiel
                 origin_geography_layer, origin_id_field, competitor_location_layer,
                 competitor_id_field, network_dataset=data.usa_network_dataset, destination_count=destination_count
             )
+            nearest_comp_df.set_index('origin_id', drop=True, inplace=True)
             nearest_comp_df.columns = [c.replace('proximity', 'proximity_competition') for c in
                                        nearest_comp_df.columns]
             nearest_comp_df.columns = [c.replace('destination', 'destination_competition') for c in
@@ -124,14 +128,13 @@ def get_master_dataframe(origin_geography_layer: arcpy._mp.Layer, origin_id_fiel
             logger.error(f'Failed to solve closest competition.\n{e}')
 
     else:
+        nearest_comp_df = pd.read_csv(nearest_comp_out)
         logger.info(f'Closest competition solution already exists at {str(nearest_comp_out)}')
 
     # if we made it this far, and all three dataframes were successfully created, assemble into an output dataframe
-    if not (enrich_df and nearest_brand_df and nearest_comp_df):
+    if enrich_df is None or nearest_brand_df is None or nearest_comp_df is None:
         raise Exception('Could not create all three output results. Please view logs to see more.')
     else:
-        for df in [enrich_df, nearest_brand_df, nearest_comp_df]:
-            df.set_index('object_id', inplace=True)
         master_df = enrich_df.join(nearest_brand_df).join(nearest_comp_df)
 
         # cleanup
