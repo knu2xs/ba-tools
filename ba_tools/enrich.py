@@ -4,7 +4,7 @@ from arcgis.features import GeoAccessor
 import arcpy
 import pandas as pd
 
-from .data import ba_data
+from ._data import ba_data as data
 from .utils import get_logger, blow_chunks
 
 # get a logger to track issues
@@ -14,7 +14,7 @@ logger = get_logger('DEBUG', './enrich_local.log')
 def _get_enrich_var_df(enrich_template_fc: str) -> pd.DataFrame:
     """Get the enrichment variable dataframe."""
     # get a dataframe of all the available enrichment fields
-    ba_flds_df = ba_data.get_enrich_vars_dataframe(drop_duplicates=False)
+    ba_flds_df = data.get_enrich_vars_dataframe(drop_duplicates=False)
 
     # get the list of fields from the enrichment template feature class
     fc_enrich_flds = [f.name.upper() for f in arcpy.ListFields(enrich_template_fc)]
@@ -36,7 +36,7 @@ def _enrich_wrapper(enrich_var_lst:list, feature_class_to_enrich:str, id_field:s
                     enrich_threshold:int=1000) -> pd.DataFrame:
     """Wrapper around Enrich function to make it work"""
     # ensure using local ba_data
-    ba_data.set_to_usa_local()
+    data.set_to_usa_local()
 
     # if an ID field is provided, use it, but if not, use the OID field
     id_fld = id_field if id_field else arcpy.Describe(feature_class_to_enrich).OIDFieldName
@@ -209,7 +209,7 @@ def enrich_by_collection(enrich_collection:str, feature_class_to_enrich:str, id_
     :return: String path to output enriched feature class.
     """
     # get the full dataframe of available variables
-    vars_df = ba_data.enrich_vars_dataframe
+    vars_df = data.enrich_vars_dataframe
 
     # convert everything to uppercase for comparisons - so a mismatch is not due simply to mismatched case
     vars_df['collection_name'] = vars_df['collection_name'].str.upper()
@@ -252,8 +252,8 @@ def enrich_all(feature_class_to_enrich:str, id_field:str=None,
     fail_lst = []
 
     # enrich by collection with the ability to overcome failed collections
-    collection_lst = ba_data.enrich_vars_dataframe['collection_name'].unique()
-    for idx, collection in enumerate(ba_data.enrich_vars_dataframe['collection_name'].unique()):
+    collection_lst = data.enrich_vars_dataframe['collection_name'].unique()
+    for idx, collection in enumerate(data.enrich_vars_dataframe['collection_name'].unique()):
         try:
             coll_enrich_df = enrich_by_collection(collection, feature_class_to_enrich, id_field,
                                                   input_feature_class_fields_in_output, return_geometry)

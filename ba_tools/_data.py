@@ -1,11 +1,10 @@
 # import modules
 import itertools
-from tempfile import gettempdir
-import os
 import logging
+import os
 import pathlib
-from pathlib import Path
 import re
+from tempfile import gettempdir
 import winreg
 import xml.etree.ElementTree as ET
 
@@ -13,9 +12,10 @@ from arcgis.features import GeoAccessor
 import arcpy
 import numpy as np
 import pandas as pd
-from ba_tools.enrich import enrich_all
-from ba_tools.proximity import closest_dataframe_from_origins_destinations
-from ba_tools.utils import get_logger
+
+from .enrich import enrich_all
+from .proximity import closest_dataframe_from_origins_destinations
+from .utils import get_logger
 
 
 class BaData:
@@ -595,7 +595,7 @@ class BaData:
         master_df = self.get_master_dataframe(origin_geography_layer, brand_location_layer, competitor_location_layer,
                                               competitor_id_field, destination_count, overwrite_intermediate, logger)
         master_df.to_csv(output_csv_file)
-        return output_csv_file if isinstance(pathlib.Path, output_csv_file) else Path(output_csv_file)
+        return output_csv_file if isinstance(pathlib.Path, output_csv_file) else pathlib.Path(output_csv_file)
 
 
 # create instance of ba_data for use
@@ -603,7 +603,7 @@ ba_data = BaData()
 
 
 @property
-def to_sdf(self) -> pd.DataFrame:
+def to_df(self) -> pd.DataFrame:
     # convert the layer to a spatially enabled dataframe
     df = GeoAccessor.from_featureclass(self)
 
@@ -612,4 +612,4 @@ def to_sdf(self) -> pd.DataFrame:
 
 
 # now, monkeypatch this onto the layer object
-arcpy._mp.Layer.sdf = to_sdf
+arcpy._mp.Layer.df = to_df
