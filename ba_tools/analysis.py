@@ -67,7 +67,8 @@ def get_master_dataframe(origin_geography_layer: arcpy._mp.Layer, origin_id_fiel
     # if starting from scratch, clean everything out
     if overwrite_intermediate:
         for out_file in [enrich_all_out, nearest_brand_out, nearest_comp_out]:
-            out_file.unlink(missing_ok=True)
+            if out_file.exists():
+                out_file.unlink()
 
     enrich_df, nearest_brand_df, nearest_comp_df = None, None, None
 
@@ -139,7 +140,8 @@ def get_master_dataframe(origin_geography_layer: arcpy._mp.Layer, origin_id_fiel
 
         # cleanup
         for out_file in [enrich_all_out, nearest_brand_out, nearest_comp_out]:
-            out_file.unlink(missing_ok=True)
+            if out_file.exists():
+                out_file.unlink()
 
         return master_df
 

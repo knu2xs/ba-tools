@@ -15,4 +15,4 @@ comp_locs = gdb/'locations_competition'
 
 def test_data_get_master_dataframe():
     df = get_master_dataframe(str(block_groups), 'ID', str(brand_locs), 'LOCNUM', str(comp_locs), 'LOCNUM')
-    assert(isinstance(pd.DataFrame, df))
+    assert isinstance(pd.DataFrame, df)
