@@ -4,7 +4,7 @@ from arcgis.features import GeoAccessor
 import arcpy
 import pandas as pd
 
-from ._data import ba_data as data
+from ._data import data
 from .utils import get_logger, blow_chunks
 
 # get a logger to track issues
@@ -35,7 +35,7 @@ def _enrich_wrapper(enrich_var_lst:list, feature_class_to_enrich:str, id_field:s
                     input_feature_class_fields_in_output:bool=False, return_geometry:bool=False,
                     enrich_threshold:int=1000) -> pd.DataFrame:
     """Wrapper around Enrich function to make it work"""
-    # ensure using local ba_data
+    # ensure using local data
     data.set_to_usa_local()
 
     # if an ID field is provided, use it, but if not, use the OID field
@@ -45,7 +45,7 @@ def _enrich_wrapper(enrich_var_lst:list, feature_class_to_enrich:str, id_field:s
     enrich_fc = arcpy.Describe(feature_class_to_enrich).catalogPath
     out_gdb = arcpy.env.scratchGDB
 
-    # since the Enrich tool pukes with too much ba_data, get the count and batch the process if necessary
+    # since the Enrich tool pukes with too much data, get the count and batch the process if necessary
     feature_count = int(arcpy.management.GetCount(enrich_fc)[0])
     if feature_count > enrich_threshold:
 
@@ -82,7 +82,7 @@ def _enrich_wrapper(enrich_var_lst:list, feature_class_to_enrich:str, id_field:s
                 variables=';'.join(enrich_var_lst)
             )[0]
 
-            # delete the temporary input ba_data
+            # delete the temporary input data
             arcpy.management.Delete(tmp_features)
 
             # add this iteration to the enriched chunks

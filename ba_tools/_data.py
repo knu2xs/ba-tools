@@ -1,10 +1,7 @@
 # import modules
 import itertools
-import logging
 import os
-import pathlib
 import re
-from tempfile import gettempdir
 import winreg
 import xml.etree.ElementTree as ET
 
@@ -12,10 +9,6 @@ from arcgis.features import GeoAccessor
 import arcpy
 import numpy as np
 import pandas as pd
-
-from .enrich import enrich_all
-from .proximity import closest_dataframe_from_origins_destinations
-from .utils import get_logger
 
 
 class BaData:
@@ -81,8 +74,8 @@ class BaData:
     @property
     def _usa_key(self):
         """
-        Get the key for the current ba_data installation of Business Analyst ba_data.
-        :return: Key for the current ba_data installation of Business Analyst ba_data.
+        Get the key for the current data installation of Business Analyst data.
+        :return: Key for the current data installation of Business Analyst data.
         """
         return self._get_first_child_key(r'SOFTWARE\WOW6432Node\Esri\BusinessAnalyst\Datasets', 'USA_ESRI')
 
@@ -96,8 +89,8 @@ class BaData:
 
     def set_to_usa_local(self):
         """
-        Set the environment setting to ensure using locally installed local ba_data.
-        :return: Boolean indicating if ba_data correctly enriched.
+        Set the environment setting to ensure using locally installed local data.
+        :return: Boolean indicating if data correctly enriched.
         """
         try:
             arcpy.env.baDataSource = self._usa_dataset
@@ -111,7 +104,7 @@ class BaData:
         :param locator_key: Locator key.
         :return: Key value.
         """
-        # open the key to the current installation of Business Analyst ba_data
+        # open the key to the current installation of Business Analyst data
         key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, self._usa_key)
 
         # query the value of the locator key
@@ -120,24 +113,24 @@ class BaData:
     @property
     def usa_locator(self) -> str:
         """
-        Path to the address locator installed with Business Analyst USA ba_data.
-        :return: String directory path to the address locator installed with Business Analyst USA ba_data.
+        Path to the address locator installed with Business Analyst USA data.
+        :return: String directory path to the address locator installed with Business Analyst USA data.
         """
         return self._get_business_analyst_key_value('Locator')
 
     @property
     def usa_network_dataset(self) -> str:
         """
-        Path to the network dataset installed with Business Analyst USA ba_data.
-        :return: String directory path to the network dataset installed with Business Analyst USA ba_data.
+        Path to the network dataset installed with Business Analyst USA data.
+        :return: String directory path to the network dataset installed with Business Analyst USA data.
         """
         return self._get_business_analyst_key_value('StreetsNetwork')
 
     @property
     def usa_data_path(self) -> str:
         """
-        Path where the Business Analyst USA ba_data is located.
-        :return: String directory path to where the Business Analyst USA ba_data is installed.
+        Path where the Business Analyst USA data is located.
+        :return: String directory path to where the Business Analyst USA data is installed.
         """
 
         return self._get_business_analyst_key_value('DataInstallDir')
@@ -354,7 +347,7 @@ class BaData:
         naics_sql = ' OR '.join(f"NAICS = '{naics}'" for naics in naics_code_lst)
 
         # create the layer and apply the query
-        comp_lyr = ba_data.layer_businesses
+        comp_lyr = data.layer_businesses
         comp_lyr.definitionQuery = naics_sql
 
         # deselect the brand business locations
@@ -363,7 +356,7 @@ class BaData:
         return comp_lyr
 
     def _get_data_collection_dir(self):
-        """Helper function to retrieve location to find the ba_data collection files"""
+        """Helper function to retrieve location to find the data collection files"""
         dataset_config_file = os.path.join(self.usa_data_path, 'dataset_config.xml')
         config_tree = ET.parse(dataset_config_file)
         config_root = config_tree.getroot()
@@ -371,7 +364,7 @@ class BaData:
         return os.path.join(self.usa_data_path, config_dir)
 
     def _get_out_field_name(self, ge_field_name):
-        """Helper function to create field names to look for when trying to enrich from previously enriched ba_data."""
+        """Helper function to create field names to look for when trying to enrich from previously enriched data."""
         out_field_name = ge_field_name.replace(".", "_")
 
         # if string starts with a set of digits, replace them with Fdigits
@@ -462,144 +455,8 @@ class BaData:
     def enrich_vars(self) -> list:
         return list(self.enrich_vars_dataframe['enrich_str'].values)
 
-    def get_master_dataframe(self, origin_geography_layer:arcpy._mp.Layer, origin_id_field: str,
-                         brand_location_layer:arcpy._mp.Layer, brand_id_field:str,
-                         competitor_location_layer:arcpy._mp.Layer, competitor_id_field:str, destination_count:int=6,
-                         overwrite_intermediate:bool=False, logger:logging.Logger=None):
-        """
-        Build the master dataframe used for initial model development using a combination of geographic customer origin
-            geographies, brand locations, and competitor locations.
-        :param origin_geography_layer: Layer of origin geographies where people are coming from - ideally US Census
-            Block Groups.
-        :param origin_id_field: String field name uniquely identifying the origin geographies.
-        :param brand_location_layer: Point location layer where the brand locations are at.
-        :param brand_id_field: String field name uniquely identifying the brand locations.
-        :param competitor_location_layer: Point location layer where the competitor locations are at.
-        :param competitor_id_field: String field name uniquely identifying the competitor locations.
-        :param destination_count: Optional integer count of the number of locations to find for each origin geography.
-            The default is six.
-        :param overwrite_intermediate: Optional boolean indicating if this analysis should overwrite previous runs. The
-            default is False indicating to use previous runs if previous attempts were unsuccessful.
-        :param logger: Optional Logger object instance with details for saving results of attempting to build data.
-        :return: Pandas dataframe with all the data assembled and ready for modeling.
-        """
-        # set up logging
-        if logger is None:
-            logger = get_logger('INFO')
-
-        # get a temporary directory, the standard one, to work with
-        temp_dir = pathlib.Path(gettempdir())
-
-        # set paths for where to save intermediate data results
-        enrich_all_out = temp_dir / 'origin_enrich_all.csv'
-        nearest_brand_out = temp_dir / 'nearest_brand.csv'
-        nearest_comp_out = temp_dir / 'nearest_competition.csv'
-
-        # if starting from scratch, clean everything out
-        if overwrite_intermediate:
-            for out_file in [enrich_all_out, nearest_brand_out, nearest_comp_out]:
-                out_file.unlink(missing_ok=True)
-
-        # enrich all contributing origin geographies with all available demographics
-        if not enrich_all_out.exists() or overwrite_intermediate:
-            try:
-                logger.info(f'Starting to enrich {origin_geography_layer}.')
-                enrich_df = enrich_all(origin_geography_layer, id_field=origin_id_field)
-                enrich_df.columns = ['origin_id' if c == origin_id_field else c for c in
-                                     enrich_df.columns]
-                enrich_df.to_csv(str(enrich_all_out))
-                logger.info(
-                    f'Successfully enriched origin geographies. The output is located at {str(enrich_all_out)}.')
-
-            except Exception as e:
-                logger.error(f'Failed to enrich {origin_geography_layer}.\n{e}')
-
-        else:
-            logger.info(f'Enriched origin geographies already exist at {str(enrich_all_out)}.')
-
-        # create a nearest table for all store locations
-        if not nearest_brand_out.exists() or overwrite_intermediate:
-            try:
-                logger.info('Starting to find closest store locations.')
-                nearest_brand_df = closest_dataframe_from_origins_destinations(
-                    origin_geography_layer, origin_id_field, brand_location_layer, brand_id_field,
-                    network_dataset=self.usa_network_dataset, destination_count=destination_count
-                )
-                nearest_brand_df.to_csv(str(nearest_brand_out))
-                logger.info('Successfully solved closest store locations.')
-
-            except Exception as e:
-                logger.error(f'Failed to solve closest stores.\n{e}')
-
-        else:
-            logger.info(f'Closest store solution already exists at {str(nearest_brand_out)}.')
-
-        # create a nearest table for all competition locations
-        if not nearest_comp_out.exists():
-            try:
-                logger.info('Starting to find closest competition locations')
-                nearest_comp_df = closest_dataframe_from_origins_destinations(
-                    origin_geography_layer, origin_id_field, competitor_location_layer,
-                    competitor_id_field, network_dataset=self.usa_network_dataset, destination_count=destination_count
-                )
-                nearest_comp_df.columns = [c.replace('proximity', 'proximity_competition') for c in
-                                           nearest_comp_df.columns]
-                nearest_comp_df.columns = [c.replace('destination', 'destination_competition') for c in
-                                           nearest_comp_df.columns]
-                nearest_comp_df.to_csv(str(nearest_comp_out))
-                logger.info('Successfully solved closest competition locations.')
-
-            except Exception as e:
-                logger.error(f'Failed to solve closest competition.\n{e}')
-
-        else:
-            logger.info(f'Closest competition solution already exists at {str(nearest_comp_out)}')
-
-        # if we made it this far, and all three dataframes were successfully created, assemble into an output dataframe
-        if not (enrich_df and nearest_brand_df and nearest_comp_df):
-            raise Exception('Could not create all three output results. Please view logs to see more.')
-        else:
-            for df in [enrich_df, nearest_brand_df, nearest_comp_df]:
-                df.set_index('object_id', inplace=True)
-            master_df = enrich_df.join(nearest_brand_df).join(nearest_comp_df)
-
-            # cleanup
-            for out_file in [enrich_all_out, nearest_brand_out, nearest_comp_out]:
-                out_file.unlink(missing_ok=True)
-
-            return master_df
-
-    def get_master_csv(self, origin_geography_layer:arcpy._mp.Layer, origin_id_field: str,
-                       brand_location_layer:arcpy._mp.Layer, brand_id_field:str,
-                       competitor_location_layer:arcpy._mp.Layer, competitor_id_field:str,
-                       output_csv_file:[str, pathlib.Path], destination_count:int=6,
-                       overwrite_intermediate:bool=False, logger:logging.Logger=None):
-        """
-        Build the master dataframe used for initial model development and save as a CSV using a combination of
-            geographic customer origin geographies, brand locations, and competitor locations.
-        :param origin_geography_layer: Layer of origin geographies where people are coming from - ideally US Census
-            Block Groups.
-        :param origin_id_field: String field name uniquely identifying the origin geographies.
-        :param brand_location_layer: Point location layer where the brand locations are at.
-        :param brand_id_field: String field name uniquely identifying the brand locations.
-        :param competitor_location_layer: Point location layer where the competitor locations are at.
-        :param competitor_id_field: String field name uniquely identifying the competitor locations.
-        :param output_csv_file: Path to output CSV file where the prepped data will be saved.
-        :param destination_count: Optional integer count of the number of locations to find for each origin geography.
-            The default is six.
-        :param overwrite_intermediate: Optional boolean indicating if this analysis should overwrite previous runs. The
-            default is False indicating to use previous runs if previous attempts were unsuccessful.
-        :param logger: Optional Logger object instance with details for saving results of attempting to build data.
-        :return: Pandas dataframe with all the data assembled and ready for modeling.
-        """
-        master_df = self.get_master_dataframe(origin_geography_layer, brand_location_layer, competitor_location_layer,
-                                              competitor_id_field, destination_count, overwrite_intermediate, logger)
-        master_df.to_csv(output_csv_file)
-        return output_csv_file if isinstance(pathlib.Path, output_csv_file) else pathlib.Path(output_csv_file)
-
-
-# create instance of ba_data for use
-ba_data = BaData()
+# create instance of data for use
+data = BaData()
 
 
 @property
