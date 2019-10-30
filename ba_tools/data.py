@@ -1,6 +1,10 @@
 # import modules
 import itertools
+from tempfile import gettempdir
 import os
+import logging
+import pathlib
+from pathlib import Path
 import re
 import winreg
 import xml.etree.ElementTree as ET
@@ -9,6 +13,8 @@ from arcgis.features import GeoAccessor
 import arcpy
 import numpy as np
 import pandas as pd
+from ba_tools.enrich import enrich_all
+from ba_tools.proximity import closest_dataframe_from_origins_destinations
 
 
 class BaData:
@@ -454,6 +460,142 @@ class BaData:
     @property
     def enrich_vars(self) -> list:
         return list(self.enrich_vars_dataframe['enrich_str'].values)
+
+    def get_master_dataframe(self, origin_geography_layer:arcpy._mp.Layer, origin_id_field: str,
+                         brand_location_layer:arcpy._mp.Layer, brand_id_field:str,
+                         competitor_location_layer:arcpy._mp.Layer, competitor_id_field:str, destination_count:int=6,
+                         overwrite_intermediate:bool=False, logger:logging.Logger=None):
+        """
+        Build the master dataframe used for initial model development using a combination of geographic customer origin
+            geographies, brand locations, and competitor locations.
+        :param origin_geography_layer: Layer of origin geographies where people are coming from - ideally US Census
+            Block Groups.
+        :param origin_id_field: String field name uniquely identifying the origin geographies.
+        :param brand_location_layer: Point location layer where the brand locations are at.
+        :param brand_id_field: String field name uniquely identifying the brand locations.
+        :param competitor_location_layer: Point location layer where the competitor locations are at.
+        :param competitor_id_field: String field name uniquely identifying the competitor locations.
+        :param destination_count: Optional integer count of the number of locations to find for each origin geography.
+            The default is six.
+        :param overwrite_intermediate: Optional boolean indicating if this analysis should overwrite previous runs. The
+            default is False indicating to use previous runs if previous attempts were unsuccessful.
+        :param logger: Optional Logger object instance with details for saving results of attempting to build data.
+        :return: Pandas dataframe with all the data assembled and ready for modeling.
+        """
+        # set up logging
+        if logger is None:
+            logger = logging.getLogger('build_master_log')
+        logger.setLevel('INFO')
+
+        # get a temporary directory, the standard one, to work with
+        temp_dir = pathlib.Path(gettempdir())
+
+        # set paths for where to save intermediate data results
+        enrich_all_out = temp_dir / 'origin_enrich_all.csv'
+        nearest_brand_out = temp_dir / 'nearest_brand.csv'
+        nearest_comp_out = temp_dir / 'nearest_competition.csv'
+
+        # if starting from scratch, clean everything out
+        if overwrite_intermediate:
+            for out_file in [enrich_all_out, nearest_brand_out, nearest_comp_out]:
+                out_file.unlink(missing_ok=True)
+
+        # enrich all contributing origin geographies with all available demographics
+        if not enrich_all_out.exists() or overwrite_intermediate:
+            try:
+                logger.info(f'Starting to enrich {origin_geography_layer}.')
+                enrich_df = enrich_all(origin_geography_layer, id_field=origin_id_field)
+                enrich_df.columns = ['origin_id' if c == origin_id_field else c for c in
+                                     enrich_df.columns]
+                enrich_df.to_csv(str(enrich_all_out))
+                logger.info(
+                    f'Successfully enriched origin geographies. The output is located at {str(enrich_all_out)}.')
+
+            except Exception as e:
+                logger.error(f'Failed to enrich {origin_geography_layer}.\n{e}')
+
+        else:
+            logger.info(f'Enriched origin geographies already exist at {str(enrich_all_out)}.')
+
+        # create a nearest table for all store locations
+        if not nearest_brand_out.exists() or overwrite_intermediate:
+            try:
+                logger.info('Starting to find closest store locations.')
+                nearest_brand_df = closest_dataframe_from_origins_destinations(
+                    origin_geography_layer, origin_id_field, brand_location_layer, brand_id_field,
+                    network_dataset=self.usa_network_dataset, destination_count=destination_count
+                )
+                nearest_brand_df.to_csv(str(nearest_brand_out))
+                logger.info('Successfully solved closest store locations.')
+
+            except Exception as e:
+                logger.error(f'Failed to solve closest stores.\n{e}')
+
+        else:
+            logger.info(f'Closest store solution already exists at {str(nearest_brand_out)}.')
+
+        # create a nearest table for all competition locations
+        if not nearest_comp_out.exists():
+            try:
+                logger.info('Starting to find closest competition locations')
+                nearest_comp_df = closest_dataframe_from_origins_destinations(
+                    origin_geography_layer, origin_id_field, competitor_location_layer,
+                    competitor_id_field, network_dataset=self.usa_network_dataset, destination_count=destination_count
+                )
+                nearest_comp_df.columns = [c.replace('proximity', 'proximity_competition') for c in
+                                           nearest_comp_df.columns]
+                nearest_comp_df.columns = [c.replace('destination', 'destination_competition') for c in
+                                           nearest_comp_df.columns]
+                nearest_comp_df.to_csv(str(nearest_comp_out))
+                logger.info('Successfully solved closest competition locations.')
+
+            except Exception as e:
+                logger.error(f'Failed to solve closest competition.\n{e}')
+
+        else:
+            logger.info(f'Closest competition solution already exists at {str(nearest_comp_out)}')
+
+        # if we made it this far, and all three dataframes were successfully created, assemble into an output dataframe
+        if not (enrich_df and nearest_brand_df and nearest_comp_df):
+            raise Exception('Could not create all three output results. Please view logs to see more.')
+        else:
+            for df in [enrich_df, nearest_brand_df, nearest_comp_df]:
+                df.set_index('object_id', inplace=True)
+            master_df = enrich_df.join(nearest_brand_df).join(nearest_comp_df)
+
+            # cleanup
+            for out_file in [enrich_all_out, nearest_brand_out, nearest_comp_out]:
+                out_file.unlink(missing_ok=True)
+
+            return master_df
+
+    def get_master_csv(self, origin_geography_layer:arcpy._mp.Layer, origin_id_field: str,
+                       brand_location_layer:arcpy._mp.Layer, brand_id_field:str,
+                       competitor_location_layer:arcpy._mp.Layer, competitor_id_field:str,
+                       output_csv_file:[str, pathlib.Path], destination_count:int=6,
+                       overwrite_intermediate:bool=False, logger:logging.Logger=None):
+        """
+        Build the master dataframe used for initial model development and save as a CSV using a combination of
+            geographic customer origin geographies, brand locations, and competitor locations.
+        :param origin_geography_layer: Layer of origin geographies where people are coming from - ideally US Census
+            Block Groups.
+        :param origin_id_field: String field name uniquely identifying the origin geographies.
+        :param brand_location_layer: Point location layer where the brand locations are at.
+        :param brand_id_field: String field name uniquely identifying the brand locations.
+        :param competitor_location_layer: Point location layer where the competitor locations are at.
+        :param competitor_id_field: String field name uniquely identifying the competitor locations.
+        :param output_csv_file: Path to output CSV file where the prepped data will be saved.
+        :param destination_count: Optional integer count of the number of locations to find for each origin geography.
+            The default is six.
+        :param overwrite_intermediate: Optional boolean indicating if this analysis should overwrite previous runs. The
+            default is False indicating to use previous runs if previous attempts were unsuccessful.
+        :param logger: Optional Logger object instance with details for saving results of attempting to build data.
+        :return: Pandas dataframe with all the data assembled and ready for modeling.
+        """
+        master_df = self.get_master_dataframe(origin_geography_layer, brand_location_layer, competitor_location_layer,
+                                              competitor_id_field, destination_count, overwrite_intermediate, logger)
+        master_df.to_csv(output_csv_file)
+        return output_csv_file if isinstance(pathlib.Path, output_csv_file) else Path(output_csv_file)
 
 
 # create instance of ba_data for use
