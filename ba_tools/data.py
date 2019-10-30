@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 from ba_tools.enrich import enrich_all
 from ba_tools.proximity import closest_dataframe_from_origins_destinations
+from ba_tools.utils import get_logger
 
 
 class BaData:
@@ -484,8 +485,7 @@ class BaData:
         """
         # set up logging
         if logger is None:
-            logger = logging.getLogger('build_master_log')
-        logger.setLevel('INFO')
+            logger = get_logger('INFO')
 
         # get a temporary directory, the standard one, to work with
         temp_dir = pathlib.Path(gettempdir())
