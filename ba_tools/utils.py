@@ -358,7 +358,7 @@ def get_logger(loglevel:str='WARNING', logfile:str=None) -> logging.Logger:
         f_handler = logging.FileHandler(logfile)
 
     for handler in [c_handler, f_handler]:
-        handler.setLevel('DEBUG')
+        handler.setLevel(loglevel)
         handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         logger.addHandler(handler)
 
