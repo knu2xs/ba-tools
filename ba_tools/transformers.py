@@ -1,11 +1,17 @@
-from sklearn.base import BaseEstimator, TransformerMixin
+from pathlib import Path
+
+from arcgis.features import GeoAccessor
+import arcpy
 import numpy as np
 import pandas as pd
-import arcpy
-from arcgis.features import GeoAccessor
+from sklearn.base import BaseEstimator, TransformerMixin
+
+from . import data
+from .enrich import enrich_all
+from . import proximity
 
 
-class BaseTransformer(BaseEstimator, TransformerMixin):
+class _BaseTransformer(BaseEstimator, TransformerMixin):
     """
     Transformer class to save putting the fit method into all the transformers below.
     """
@@ -13,7 +19,99 @@ class BaseTransformer(BaseEstimator, TransformerMixin):
         return self
 
 
-class CalculateMarketPenetration(BaseTransformer):
+class AddDemographicsToOriginGeographies(_BaseTransformer):
+    """
+    Enrich the origin geographies.
+    :param geography_id_field: Column containing integer values uniquely identifying each geography.
+    """
+    def __init__(self, geography_id_field, interim_data_directory, rebuild_if_output_exists=False):
+        self.geography_id_fld = geography_id_field
+        self.interim_dir = Path(interim_data_directory)
+        self.rebuild = rebuild_if_output_exists
+
+    def transform(self, X, y=None):
+        enrich_csv = self.interim_dir/'origin_demographics.csv'
+
+        if not enrich_csv.exists() or self.rebuild:
+            enrich_df = enrich_all(X, id_field=self.geography_id_fld)
+            enrich_df.rename(columns={self.geography_id_fld: 'origin_id'})
+            enrich_df.set_index('origin_id', drop=True, inplace=True)
+            enrich_df.to_csv(enrich_csv)
+        else:
+            enrich_df = pd.read_csv(enrich_csv)
+
+        return enrich_df
+
+
+class AddNearestLocationsToOriginDataframe(_BaseTransformer):
+    """
+    Add the nearest nth locations to the origin geographies.
+    """
+    def __init__(self, origin_geography_layer, origin_id_field, location_layer, location_id_field,
+                 destination_count, interim_data_directory, rebuild_if_output_exists=False):
+        self.origin_lyr = origin_geography_layer
+        self.origin_id_fld = origin_id_field
+        self.location_lyr = location_layer
+        self.location_id_fld = location_id_field
+        self.destination_cnt = destination_count
+        self.interim_dir = Path(interim_data_directory)
+        self.rebuild = rebuild_if_output_exists
+
+    def transform(self, X, y=None):
+        nearest_csv = self.interim_dir/'nearest_locations.csv'
+
+        if not nearest_csv.exists() or self.rebuild:
+            nearest_df = proximity.closest_dataframe_from_origins_destinations(self.origin_lyr, self.origin_id_fld,
+                                                                               self.location_lyr, self.location_id_fld,
+                                                                               network_dataset=data.usa_network_dataset,
+                                                                               destination_count=self.destination_cnt)
+            nearest_df.set_index('origin_id', drop=True, inplace=True)
+
+            nearest_df.to_csv(nearest_csv)
+        else:
+            nearest_df = pd.read_csv(nearest_csv)
+
+        return X.join(nearest_df)
+
+
+class AddNearestCompetitionLocationsToOriginDataframe(_BaseTransformer):
+    """
+    Add the nearest nth locations to the origin geographies.
+    """
+
+    def __init__(self, origin_geography_layer, origin_id_field, competition_location_layer,
+                 competition_location_id_field, destination_count, interim_data_directory,
+                 rebuild_if_output_exists=False):
+        self.origin_lyr = origin_geography_layer
+        self.origin_id_fld = origin_id_field
+        self.location_lyr = competition_location_layer
+        self.location_id_fld = competition_location_id_field
+        self.destination_cnt = destination_count
+        self.interim_dir = Path(interim_data_directory)
+        self.rebuild = rebuild_if_output_exists
+
+    def transform(self, X, y=None):
+        nearest_csv = self.interim_dir / 'nearest_competition_locations.csv'
+
+        if not nearest_csv.exists() or self.rebuild:
+            nearest_df = proximity.closest_dataframe_from_origins_destinations(self.origin_lyr, self.origin_id_fld,
+                                                                               self.location_lyr, self.location_id_fld,
+                                                                               network_dataset=data.usa_network_dataset,
+                                                                               destination_count=self.destination_cnt)
+            nearest_df.set_index('origin_id', drop=True, inplace=True)
+
+            nearest_df.columns = [c.replace('proximity', 'proximity_competition') for c in nearest_df.columns]
+            nearest_df.columns = [c.replace('destination', 'destination_competition') for c in nearest_df.columns]
+
+            nearest_df.to_csv(nearest_csv)
+        else:
+            nearest_df = pd.read_csv(nearest_csv)
+
+        return X.join(nearest_df)
+
+
+##################################################################################################################
+class CalculateMarketPenetration(_BaseTransformer):
 
     def __init__(self, customer_count_field, total_population_field):
         """
@@ -33,7 +131,7 @@ class CalculateMarketPenetration(BaseTransformer):
         return mkt_pen_df
 
 
-class DemographicFeatureClassToDataframe(BaseTransformer):
+class DemographicFeatureClassToDataframe(_BaseTransformer):
 
     def __init__(self, output_alias_table, demographic_polygon_id_field='ID'):
         """
@@ -68,7 +166,7 @@ class DemographicFeatureClassToDataframe(BaseTransformer):
         return bg_df
 
 
-class EsriLocatedStoresFeatureClassToDataframe(BaseTransformer):
+class EsriLocatedStoresFeatureClassToDataframe(_BaseTransformer):
 
     def __init__(self, unique_location_id_field='LOCNUM', store_class_field='CONAME'):
         """
@@ -96,7 +194,7 @@ class EsriLocatedStoresFeatureClassToDataframe(BaseTransformer):
         return store_df
 
 
-class StoreClassifyByCount(BaseTransformer):
+class StoreClassifyByCount(_BaseTransformer):
 
     def __init__(self, store_count_threshold=3):
         """
@@ -131,7 +229,7 @@ class StoreClassifyByCount(BaseTransformer):
         return store_count_df[['store_class', 'store_class_original', 'SHAPE']].copy()
 
 
-class SummarizeInrixTripsByOriginAndDestination(BaseTransformer):
+class SummarizeInrixTripsByOriginAndDestination(_BaseTransformer):
     """
     The trips all start in a location and end in a location. Based on a unique id contained in a field for each,
     summarize the distance, time traveled, and count of trips.
@@ -169,7 +267,7 @@ class SummarizeInrixTripsByOriginAndDestination(BaseTransformer):
         return trip_stats_df
 
 
-class AddStoresDataframeToTripsDataframe(BaseTransformer):
+class AddStoresDataframeToTripsDataframe(_BaseTransformer):
 
     def __init__(self, store_dataframe, store_origin_id_field='origin_id', store_destination_id_field='destination_id'):
         """
@@ -211,7 +309,7 @@ class AddStoresDataframeToTripsDataframe(BaseTransformer):
         return join_df
 
 
-class AddPolygonOriginDataframeToInrixTripSummaryDataframe(BaseTransformer):
+class AddPolygonOriginDataframeToInrixTripSummaryDataframe(_BaseTransformer):
 
     def __init__(self, origin_dataframe, trip_origin_id_field='origin_id'):
         """
@@ -233,7 +331,7 @@ class AddPolygonOriginDataframeToInrixTripSummaryDataframe(BaseTransformer):
         return X.join(self.origin_df, on=self.trip_origin_id_fld)
 
 
-class AddBlockGroupDataframeToTripsDataframe(BaseTransformer):
+class AddBlockGroupDataframeToTripsDataframe(_BaseTransformer):
 
     def __init__(self, block_group_dataframe, block_group_origin_id_field='origin_id',
                  block_group_destination_id_field='destination_id',
@@ -280,7 +378,7 @@ class AddBlockGroupDataframeToTripsDataframe(BaseTransformer):
         return join_df
 
 
-class CalculateOriginProximityMetricsByStoreClass(BaseTransformer):
+class CalculateOriginProximityMetricsByStoreClass(_BaseTransformer):
     """
     Create a dataframe of destination locations with associated proximity metrics pivoted into discrete columns
     so there is only one record for each origin id.
@@ -387,7 +485,7 @@ class CalculateOriginProximityMetricsByStoreClass(BaseTransformer):
         return final_df
 
 
-class AddDemographicsToProximityMetrics(BaseTransformer):
+class AddDemographicsToProximityMetrics(_BaseTransformer):
     """
     Add the demogrpahics table back onto the output from calculating proximity metrics.
     :param demographics_dataframe: Dataframe with the geographic origin areas' origin_ids set as the index.

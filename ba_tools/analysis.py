@@ -138,11 +138,6 @@ def get_master_dataframe(origin_geography_layer: arcpy._mp.Layer, origin_id_fiel
     else:
         master_df = enrich_df.join(nearest_brand_df).join(nearest_comp_df)
 
-        # cleanup
-        for out_file in [enrich_all_out, nearest_brand_out, nearest_comp_out]:
-            if out_file.exists():
-                out_file.unlink()
-
         return master_df
 
 
@@ -172,8 +167,12 @@ def get_master_csv(origin_geography_layer: arcpy._mp.Layer, origin_id_field: str
     master_df = get_master_dataframe(origin_geography_layer, origin_id_field, brand_location_layer, brand_id_field,
                                      competitor_location_layer, competitor_id_field, destination_count,
                                      overwrite_intermediate, logger)
+
     master_df.to_csv(output_csv_file)
-    return output_csv_file if isinstance(pathlib.Path, output_csv_file) else pathlib.Path(output_csv_file)
+
+    if not isinstance(pathlib.Path, output_csv_file):
+        output_csv_file = pathlib.Path(output_csv_file)
+    return output_csv_file
 
 
 def get_add_new_closest_dataframe(origins: [str, pd.DataFrame], origin_id_field: str, destinations: [str, pd.DataFrame],
