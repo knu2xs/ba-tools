@@ -2,6 +2,7 @@ import importlib
 import logging
 import math
 import os
+import pathlib
 import re
 import warnings
 
@@ -34,6 +35,8 @@ def get_dataframe(in_features, gis=None):
         Resource to be evaluated and converted to a Spatially Enabled Dataframe.
     :param gis: Optional GIS object instance for connecting to resources.
     """
+    # if a path object, convert to a string for following steps to work correctly
+    in_features = str(in_features) if isinstance(in_features, pathlib.Path) else in_features
 
     # if already a Spatially Enabled Dataframe, mostly just pass it straight through
     if isinstance(in_features, pd.DataFrame) and in_features.spatial.validate() is True:
@@ -373,3 +376,12 @@ def blow_chunks(iterable:iter, chunk_size:int) -> list:
     :return: List original objects in sublists defined by the size of the sublist.
     """
     return [iterable[i * chunk_size: (i + 1) * chunk_size] for i in range(math.ceil(len(iterable)/chunk_size))]
+
+
+def ensure_path(path:[str, pathlib.Path]):
+    """
+    Check if the input path is a string or Path object, and return a path object.
+    :param path: String or Path object with a path to a resource.
+    :return: Path object instance
+    """
+    return path if isinstance(path, pathlib.Path) else pathlib.Path(path)
