@@ -93,3 +93,6 @@ target/
 **/*.pyHistory
 
 **/*.lock
+
+# test scratch outputs
+testing/test_data/scratch

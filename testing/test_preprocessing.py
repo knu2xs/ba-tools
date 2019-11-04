@@ -24,6 +24,8 @@ scratch_dir = data_dir/'scratch'
 if not scratch_dir.exists():
     scratch_dir.mkdir()
 
+cols_df = pd.DataFrame(columns=['test_FY', 'destination_id_01', 'run_fast', 'run_slow', 'walk_fast', 'walk_slow'])
+
 
 def test_origins_to_dataframe():
     origins_to_dataframe = preprocessing.OriginGeographyFeatureClassToDataframe(
@@ -84,3 +86,43 @@ def test_add_nearest_competition_locations():
 
     out_path = scratch_dir/'nearest_locations.csv'
     assert (isinstance(df, pd.DataFrame) and out_path.exists())
+
+
+def test_exclude_startswith():
+    start_count = len(cols_df.columns)
+    trans = preprocessing.ExcludeColumnsByStartswith('run')
+    out_df = trans.fit_transform(cols_df)
+    out_count = len(out_df.columns)
+    assert(out_count == start_count-2)
+
+
+def test_exclude_endswith():
+    start_count = len(cols_df.columns)
+    trans = preprocessing.ExcludeColumnsByEndswith('slow')
+    out_df = trans.fit_transform(cols_df)
+    out_count = len(out_df.columns)
+    assert(out_count == start_count-2)
+
+
+def test_exclude_contains():
+    start_count = len(cols_df.columns)
+    trans = preprocessing.ExcludeColumnsByContains(['run', 'walk'])
+    out_df = trans.fit_transform(cols_df)
+    out_count = len(out_df.columns)
+    assert(out_count == start_count-4)
+
+
+def test_exclude_dest_id():
+    start_count = len(cols_df.columns)
+    trans = preprocessing.ExcludeDestinationIdColumns()
+    out_df = trans.fit_transform(cols_df)
+    out_count = len(out_df.columns)
+    assert(out_count == start_count-1)
+
+
+def test_exclude_fy():
+    start_count = len(cols_df.columns)
+    trans = preprocessing.ExcludeFutureYearColumns()
+    out_df = trans.fit_transform(cols_df)
+    out_count = len(out_df.columns)
+    assert(out_count == start_count-1)
