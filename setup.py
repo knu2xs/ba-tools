@@ -8,7 +8,7 @@ with open('requirements.txt') as reqs:
 
 setuptools.setup(
     name='ba-tools',
-    version='0.6.5',
+    version='0.7',
     author='Joel McCune',
     author_email='jmccune@esri.com',
     description='Feature engineering using ArcGIS Pro with Business Analyst for using quantitative Geography '
@@ -22,7 +22,7 @@ setuptools.setup(
         'requests',
         'numpy',
         'pandas',
-        # 'arcgis>=1.6.2',
+        'arcgis>=1.7.0',
         'scikit-learn'
     ],
     classifiers=[

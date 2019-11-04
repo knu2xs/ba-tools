@@ -1,5 +1,5 @@
 requests
 numpy
 pandas
-arcgis>=1.6.1
+arcgis>=1.7.0
 scikit-learn
