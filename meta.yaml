@@ -13,12 +13,11 @@ requirements:
     - python>=3.6
     - setuptools
   run:
-    - python>=3.6
-    - requests
+    - arcgis>=1.7.0
+    - arcgispro
     - numpy
     - pandas
-    - arcgispro
-    - arcgis>=1.7.0
+    - requests
     - scikit-learn
 
 about:

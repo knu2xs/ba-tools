@@ -3,9 +3,6 @@ import setuptools
 with open('README.md', 'r') as readme:
     long_description = readme.read()
 
-with open('requirements.txt') as reqs:
-    requirements = reqs.read().splitlines()
-
 setuptools.setup(
     name='ba-tools',
     version='0.7',
