@@ -351,7 +351,12 @@ class BaData:
         comp_lyr.definitionQuery = naics_sql
 
         # deselect the brand business locations
-        arcpy.management.SelectLayerByLocation(comp_lyr, 'ARE_IDENTICAL_TO', business_layer, 'REMOVE_FROM_SELECTION')
+        arcpy.management.SelectLayerByLocation(
+            in_layer=comp_lyr,
+            overlap_type='ARE_IDENTICAL_TO',
+            select_features=business_layer,
+            selection_type='REMOVE_FROM_SELECTION'
+        )
 
         return comp_lyr
 
