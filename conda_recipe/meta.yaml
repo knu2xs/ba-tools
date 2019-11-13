@@ -1,11 +1,12 @@
 package:
   name: ba-tools
-  version: "0.7.1"
+  version: "0.7.2"
 
 source:
-  path: ../
+  path: ..
 
 build:
+  preserve_egg_dir: True
   script: python setup.py install --single-version-externally-managed --record=record.txt
 
 requirements:

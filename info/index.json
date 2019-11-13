@@ -1,0 +1,18 @@
+{
+  "arch": "x86_64",
+  "build": "0",
+  "build_number": 0,
+  "depends": [
+    "arcgis >=1.7.0",
+    "numpy",
+    "pandas",
+    "requests",
+    "scikit-learn"
+  ],
+  "license": "Apache 2.0",
+  "name": "ba-tools",
+  "platform": "win",
+  "subdir": "win-64",
+  "timestamp": 1573088212119,
+  "version": "0.7.1"
+}

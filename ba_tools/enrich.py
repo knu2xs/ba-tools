@@ -2,13 +2,11 @@ import os
 
 from arcgis.features import GeoAccessor
 import arcpy
+import logging
 import pandas as pd
 
 from ._data import data
 from .utils import get_logger, blow_chunks
-
-# get a logger to track issues
-logger = get_logger('DEBUG', './enrich_local.log')
 
 
 def _get_enrich_var_df(enrich_template_fc: str) -> pd.DataFrame:
@@ -31,7 +29,7 @@ def _get_enrich_var_lst(enrich_template_fc: str) -> list:
     return list(enrich_df['enrich_str'].values)
 
 
-def _enrich_wrapper(enrich_var_lst:list, feature_class_to_enrich:str, id_field:str=None,
+def _enrich_wrapper(enrich_var_lst:list, feature_class_to_enrich:str, logger:logging.Logger, id_field:str=None,
                     input_feature_class_fields_in_output:bool=False, return_geometry:bool=False,
                     enrich_threshold:int=1000) -> pd.DataFrame:
     """Wrapper around Enrich function to make it work"""
@@ -132,7 +130,8 @@ def _enrich_wrapper(enrich_var_lst:list, feature_class_to_enrich:str, id_field:s
 
 
 def enrich_from_enriched(enrich_template_feature_class:str, feature_class_to_enrich:str, id_field:str=None,
-                         input_feature_class_fields_in_output:bool=False, return_geometry:bool=False) -> pd.DataFrame:
+                         input_feature_class_fields_in_output:bool=False, return_geometry:bool=False,
+                         logger:logging.Logger=None) -> pd.DataFrame:
     """
     Enrich a new dataset using a previously enriched dataset as a template.
     :param enrich_template_feature_class: String path to a previously enriched feature class.
@@ -141,16 +140,21 @@ def enrich_from_enriched(enrich_template_feature_class:str, feature_class_to_enr
         be used.
     :param input_feature_class_fields_in_output: Optional boolean indicating if the attribute fields from the original
         feature class should be retained in the output.
+    :param logger: Logging object to track progress.
     :return: Spatially Enabled Dataframe.
     """
+    # if no logger provided, create one
+    if not logger:
+        logger = get_logger()
+
     # ensure the path is being used for the input feature class since it could be a layer
     tmpl_fc = arcpy.Describe(enrich_template_feature_class).catalogPath
 
     # get the enrich variables and combine into semicolon separated string
     enrich_var_lst = _get_enrich_var_lst(tmpl_fc)
 
-    return _enrich_wrapper(enrich_var_lst, feature_class_to_enrich, id_field, input_feature_class_fields_in_output,
-                           return_geometry)
+    return _enrich_wrapper(enrich_var_lst, feature_class_to_enrich, logger, id_field,
+                           input_feature_class_fields_in_output, return_geometry)
 
 
 def enriched_fields_to_csv(enrich_template_feature_class: str, output_csv_file: str) -> str:
@@ -197,7 +201,8 @@ def enrich_from_fields_table(enrich_table:str, feature_class_to_enrich:str, id_f
 
 
 def enrich_by_collection(enrich_collection:str, feature_class_to_enrich:str, id_field:str=None,
-                         input_feature_class_fields_in_output:bool=False, return_geometry:bool=False) -> pd.DataFrame:
+                         input_feature_class_fields_in_output:bool=False, return_geometry:bool=False,
+                         logger:logging.Logger=None) -> pd.DataFrame:
     """
     Enrich the input features with all available local variables.
     :param enrich_collection: Collection name to use for enrichment.
@@ -208,6 +213,10 @@ def enrich_by_collection(enrich_collection:str, feature_class_to_enrich:str, id_
         feature class should be retained in the output.
     :return: String path to output enriched feature class.
     """
+    # if no logger, create one
+    if not logger:
+        logger = get_logger()
+
     # get the full dataframe of available variables
     vars_df = data.enrich_vars_dataframe
 
@@ -225,12 +234,13 @@ def enrich_by_collection(enrich_collection:str, feature_class_to_enrich:str, id_
     enrich_vars = vars_df[vars_df['collection_name'] == enrich_collection]['enrich_str'].values
 
     # enrich, yo
-    return _enrich_wrapper(enrich_vars, feature_class_to_enrich, id_field, input_feature_class_fields_in_output,
+    return _enrich_wrapper(enrich_vars, feature_class_to_enrich, logger, id_field, input_feature_class_fields_in_output,
                            return_geometry)
 
 
 def enrich_all(feature_class_to_enrich:str, id_field:str=None,
-               input_feature_class_fields_in_output:bool=False, return_geometry:bool=False) -> pd.DataFrame:
+               input_feature_class_fields_in_output:bool=False, return_geometry:bool=False,
+               logger:logging.Logger=None) -> pd.DataFrame:
     """
     Enrich the input features with all available local variables.
     :param feature_class_to_enrich: String path to feature class to be enriched.
@@ -238,11 +248,16 @@ def enrich_all(feature_class_to_enrich:str, id_field:str=None,
         be used.
     :param input_feature_class_fields_in_output: Optional boolean indicating if the attribute fields from the original
         feature class should be retained in the output.
+    :param logger: logger object to record steps
     :return: Spatially Enabled Dataframe
     """
     # set the location where temporary output will be saved, the Scratch GeoDatabase
     output_gdb = arcpy.env.scratchGDB
     arcpy.env.workspace = output_gdb
+
+    # if no logger provided, create one
+    if not logger:
+        logger = get_logger()
 
     # if an ID field is provided, use it, but if not, use the OID field
     id_fld = id_field if id_field else arcpy.Describe(feature_class_to_enrich).OIDFieldName
@@ -256,7 +271,7 @@ def enrich_all(feature_class_to_enrich:str, id_field:str=None,
     for idx, collection in enumerate(data.enrich_vars_dataframe['collection_name'].unique()):
         try:
             coll_enrich_df = enrich_by_collection(collection, feature_class_to_enrich, id_field,
-                                                  input_feature_class_fields_in_output, return_geometry)
+                                                  input_feature_class_fields_in_output, return_geometry, logger)
             # if the first one, create and configure the seed Spatially Enabled Dataframe
             if idx == 0:
                 enrich_df = coll_enrich_df.copy()

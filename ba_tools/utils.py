@@ -10,6 +10,7 @@ from arcgis.features import GeoAccessor, FeatureLayer
 from arcgis.geometry import Geometry
 from arcgis.gis import GIS
 from arcgis.env import active_gis
+import arcpy
 import numpy as np
 import pandas as pd
 
@@ -355,15 +356,18 @@ def get_logger(loglevel:str='WARNING', logfile:str=None) -> logging.Logger:
     logger.setLevel(loglevel)
 
     c_handler = logging.StreamHandler()
+
     if logfile is None:
         f_handler = logging.FileHandler(f'{__name__}_logfile.log')
+        f_handler.setLevel(loglevel)
+        f_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        logger.addHandler(f_handler)
     else:
         f_handler = logging.FileHandler(logfile)
-
-    for handler in [c_handler, f_handler]:
-        handler.setLevel(loglevel)
-        handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-        logger.addHandler(handler)
+        for handler in [c_handler, f_handler]:
+            handler.setLevel(loglevel)
+            handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+            logger.addHandler(handler)
 
     return logger
 
@@ -385,3 +389,16 @@ def ensure_path(path:[str, pathlib.Path]):
     :return: Path object instance
     """
     return path if isinstance(path, pathlib.Path) else pathlib.Path(path)
+
+
+def summarize_by_geography(input_point_features:[str, pathlib.Path], point_sum_fields:[list],
+                           input_grouping_polygons:[str, pathlib.Path], polygon_id_field:str=None):
+    """
+    Summarize
+    :param input_point_features:
+    :param point_sum_fields:
+    :param input_grouping_polygons:
+    :param polygon_id_field:
+    :return:
+    """
+    pass
