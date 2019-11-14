@@ -1,6 +1,7 @@
 # import modules
 import itertools
 import os
+import pathlib
 import re
 import winreg
 import xml.etree.ElementTree as ET
@@ -285,7 +286,10 @@ class BaData:
     @property
     def layer_businesses(self):
         """Business layer"""
-        fc_businesses = os.path.join(self.usa_data_path, r'Data\Business Data\BA_BUS_2018.gdb\us_businesses')
+        # get the geodatabase where the data resides and create a layer from the feature class
+        usa_data_path = pathlib.Path(self.usa_data_path)
+        gdb = [pth for pth in usa_data_path.glob('Data\Business Data\BA_BUS_*.gdb')][0]
+        fc_businesses = str(gdb / 'us_businesses')
         return arcpy.management.MakeFeatureLayer(fc_businesses)[0]
 
     def get_business_layer_by_code(self, naics_codes:[int, str, list]=None,

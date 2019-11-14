@@ -5,7 +5,7 @@ with open('README.md', 'r') as readme:
 
 setuptools.setup(
     name='ba-tools',
-    version='0.7.2',
+    version='0.7.3',
     author='Joel McCune',
     author_email='jmccune@esri.com',
     description='Feature engineering using ArcGIS Pro with Business Analyst for using quantitative Geography '
