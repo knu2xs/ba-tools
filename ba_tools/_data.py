@@ -440,7 +440,7 @@ class BaData:
     def get_enrich_vars_dataframe(self, drop_duplicates:bool=True) -> pd.DataFrame:
         collection_dir = self._get_data_collection_dir()
 
-        # get a complete list of collection files
+        # get a complete list of enrichment collection files
         coll_xml_lst = [coll_file for coll_file in os.listdir(collection_dir) if coll_file != 'EnrichmentPacksList.xml']
 
         # get the necessary properties from the collection xml files
@@ -473,8 +473,13 @@ def to_df(self) -> pd.DataFrame:
     # convert the layer to a spatially enabled dataframe
     df = GeoAccessor.from_featureclass(self)
 
-    # get rid of the object id field and return the dataframe
-    return df.drop('OBJECTID', axis=1)
+    # if the objectid field is in the columns, remove it
+    oid_col_lst = [col for col in df.columns if col.lower == 'objectid']
+    if len(oid_col_lst) > 0:
+        df.drop(oid_col_lst[0], axis=1, inplace=True)
+
+    # return the dataframe
+    return df
 
 
 # now, monkeypatch this onto the layer object
