@@ -255,12 +255,15 @@ def enrich_all(feature_class_to_enrich:str, id_field:str=None,
     output_gdb = arcpy.env.scratchGDB
     arcpy.env.workspace = output_gdb
 
+    # ensure the input, if a Path object, truly is a string for the rest of the processing
+    feature_class_to_enrich = str(feature_class_to_enrich)
+
     # if no logger provided, create one
     if not logger:
         logger = get_logger()
 
     # if an ID field is provided, use it, but if not, use the OID field
-    id_fld = id_field if id_field else arcpy.Describe(feature_class_to_enrich).OIDFieldName
+    id_fld = id_field if id_field is not None else arcpy.Describe(feature_class_to_enrich).OIDFieldName
 
     # since there can be issues with enriching using all variables at once, we enrich by collection.
     # this not only chunks up the process, but also makes debugging issues much easier as well
