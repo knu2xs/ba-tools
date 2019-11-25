@@ -17,4 +17,4 @@ block_group_id_field = 'ID'
 
 def test_enrich_all():
     enrich_df = enrich.enrich_all(block_groups)
-    assert(isinstance(pd.DataFrame, enrich_df))
+    assert isinstance(enrich_df, pd.DataFrame)
