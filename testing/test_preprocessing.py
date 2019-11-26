@@ -50,6 +50,19 @@ def test_add_demographics():
     assert (isinstance(df, pd.DataFrame) and out_path.exists())
 
 
+def test_add_demograhpics_tapestry_one_hot():
+    add_demographics_pipe = Pipeline([
+        ('get_origin_df', preprocessing.OriginGeographyFeatureClassToDataframe(block_group_id_field)),
+        ('add_demographics', preprocessing.AddDemographicsToOriginDataframe(
+            origin_geography_layer=block_groups,
+            geography_id_field=block_group_id_field,
+            interim_data_directory=scratch_dir
+        ))
+    ])
+    df = add_demographics_pipe.fit_transform(block_groups)
+
+    assert 'tapestryhouseholdsNEW_TSEGCODE_6C' in df.columns
+
 def test_add_nearest_locations():
     add_nearest_loc_pipe = Pipeline([
         ('get_origin_df', preprocessing.OriginGeographyFeatureClassToDataframe(block_group_id_field)),
