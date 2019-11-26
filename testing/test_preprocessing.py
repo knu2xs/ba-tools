@@ -63,6 +63,7 @@ def test_add_demograhpics_tapestry_one_hot():
 
     assert 'tapestryhouseholdsNEW_TSEGCODE_6C' in df.columns
 
+
 def test_add_nearest_locations():
     add_nearest_loc_pipe = Pipeline([
         ('get_origin_df', preprocessing.OriginGeographyFeatureClassToDataframe(block_group_id_field)),
