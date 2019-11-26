@@ -5,7 +5,7 @@ import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from . import data
-from .enrich import enrich_all
+from .enrich import enrich_all, enrich
 from . import proximity
 from . import utils
 
@@ -76,6 +76,59 @@ class AddDemographicsToOriginDataframe(_BaseTransformer):
 
             # enrich with all available variables
             enrich_df = enrich_all(self.origin_lyr, id_field=self.geography_id_fld)
+
+            # since there are two columns for the dominant tapestry segment, drop the numeric one for simplicity's sake
+            if 'tapestryhouseholdsNEW_TSEGNUM' in enrich_df.columns:
+                enrich_df.drop(columns='tapestryhouseholdsNEW_TSEGNUM', inplace=True)
+
+            # if one hot encoding for tapestry, grip it and rip it!
+            if self.tap_one_hot and 'tapestryhouseholdsNEW_TSEGCODE' in enrich_df.columns:
+                enrich_df = pd.get_dummies(enrich_df, columns=['tapestryhouseholdsNEW_TSEGCODE'])
+
+            # rename the index for consistency
+            enrich_df.index.name = 'origin_id'
+
+            enrich_df.to_csv(enrich_csv)
+        else:
+            enrich_df = pd.read_csv(enrich_csv, index_col=0)
+
+        # join the result to the input, and pass downstream
+        enrich_joined_df = _join_result_to_X(X, enrich_df)
+
+        return enrich_joined_df
+
+
+class AddSelectedDemographicsToOriginDataframe(_BaseTransformer):
+    """
+    Enrich origin geographies with selected available demographics.
+    :param origin_geography_layer: String path to feature Layer with all potential contributing geographies to be
+        included in the analysis.
+    :param geography_id_field: String column name for column containing integer values uniquely identifying each
+        geography.
+    :param enrich_variable_list: List of string variable names for enrichment. These can be looked up using
+        ba_tools.data.enrich_vars_dataframe. They must match values in the enrich_str column.
+    :param interim_data_directory: Directory where intermediate results will be stored for subsequent analysis.
+    :param tapestry_one_hot_encoding: Optional boolean indicating whether the dominant tapestry (if available) will be
+        one hot encoded to be ready for downstream machine learning modeling. Default is True.
+    :param rebuild_if_output_exists: Optional boolean indicating if the output should be rebuild if it already exists in
+        the interim directory. Default is False
+    """
+    def __init__(self, origin_geography_layer, geography_id_field, enrich_variable_list, interim_data_directory,
+                 tapestry_one_hot_encoding=True, rebuild_if_output_exists=False):
+        self.origin_lyr = str(origin_geography_layer)
+        self.geography_id_fld = geography_id_field
+        self.enrich_vars = enrich_variable_list
+        self.interim_dir = utils.ensure_path(interim_data_directory)
+        self.tap_one_hot = tapestry_one_hot_encoding
+        self.rebuild = rebuild_if_output_exists
+
+    def transform(self, X, y=None):
+        enrich_csv = self.interim_dir/'origin_demographics.csv'
+
+        if not enrich_csv.exists() or self.rebuild:
+
+            # enrich with all available variables
+            enrich_df = enrich(self.origin_lyr, self.enrich_vars, id_field=self.geography_id_fld)
 
             # since there are two columns for the dominant tapestry segment, drop the numeric one for simplicity's sake
             if 'tapestryhouseholdsNEW_TSEGNUM' in enrich_df.columns:

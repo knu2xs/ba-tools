@@ -6,7 +6,7 @@ import pandas as pd
 from sklearn.pipeline import Pipeline
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from ba_tools import preprocessing
+from ba_tools import preprocessing, data
 
 data_dir = Path(__file__).parent/'test_data'
 gdb = data_dir/'test_data.gdb'
@@ -41,7 +41,8 @@ def test_add_demographics():
         ('add_demographics', preprocessing.AddDemographicsToOriginDataframe(
             origin_geography_layer=block_groups,
             geography_id_field=block_group_id_field,
-            interim_data_directory=scratch_dir
+            interim_data_directory=scratch_dir,
+            rebuild_if_output_exists=True
         ))
     ])
     df = add_demographics_pipe.fit_transform(block_groups)
@@ -56,13 +57,29 @@ def test_add_demograhpics_tapestry_one_hot():
         ('add_demographics', preprocessing.AddDemographicsToOriginDataframe(
             origin_geography_layer=block_groups,
             geography_id_field=block_group_id_field,
-            interim_data_directory=scratch_dir
+            interim_data_directory=scratch_dir,
+            rebuild_if_output_exists=True
         ))
     ])
     df = add_demographics_pipe.fit_transform(block_groups)
 
     assert 'tapestryhouseholdsNEW_TSEGCODE_6C' in df.columns
 
+
+def test_add_selected_demographics():
+    add_demographics_pipe = Pipeline([
+        ('get_origin_df', preprocessing.OriginGeographyFeatureClassToDataframe(block_group_id_field)),
+        ('add_demographics', preprocessing.AddSelectedDemographicsToOriginDataframe(
+            origin_geography_layer=block_groups,
+            geography_id_field=block_group_id_field,
+            enrich_variable_list=data.enrich_vars_dataframe.sample(10)['enrich_str'],
+            interim_data_directory=scratch_dir,
+            rebuild_if_output_exists=True
+        ))
+    ])
+    df = add_demographics_pipe.fit_transform(block_groups)
+
+    assert len(df.columns) == 10
 
 def test_add_nearest_locations():
     add_nearest_loc_pipe = Pipeline([
