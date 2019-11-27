@@ -81,6 +81,22 @@ def test_add_selected_demographics():
 
     assert len(df.columns) == 10
 
+
+def test_add_tapestry_demograhpics():
+    add_demographics_pipe = Pipeline([
+        ('get_origin_df', preprocessing.OriginGeographyFeatureClassToDataframe(block_group_id_field)),
+        ('add_demographics', preprocessing.AddTapestryDemographicsToOriginDataframe(
+            origin_geography_layer=block_groups,
+            geography_id_field=block_group_id_field,
+            interim_data_directory=scratch_dir,
+            rebuild_if_output_exists=True
+        ))
+    ])
+    df = add_demographics_pipe.fit_transform(block_groups)
+
+    assert 'tapestryhouseholdsNEW_TSEGCODE_6C' in df.columns
+
+
 def test_add_nearest_locations():
     add_nearest_loc_pipe = Pipeline([
         ('get_origin_df', preprocessing.OriginGeographyFeatureClassToDataframe(block_group_id_field)),
