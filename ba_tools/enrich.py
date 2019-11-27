@@ -238,6 +238,83 @@ def enrich_by_collection(enrich_collection:str, feature_class_to_enrich:str, id_
                            return_geometry)
 
 
+def enrich(feature_class_to_enrich:str, enrich_variables:list, id_field:str=None,
+           input_feature_class_fields_in_output:bool=False, return_geometry:bool=False,
+           logger:logging.Logger=None) -> pd.DataFrame:
+    """
+    Enrich the input features with all available local variables.
+    :param feature_class_to_enrich: String path to feature class to be enriched.
+    :param enrich_variables: List of enrich variable strings.
+    :param id_field: Optional field uniquely identifying every area to be enriched. If not provided, the OBJECTID will
+        be used.
+    :param input_feature_class_fields_in_output: Optional boolean indicating if the attribute fields from the original
+        feature class should be retained in the output.
+    :param logger: logger object to record steps
+    :return: Spatially Enabled Dataframe
+    """
+    # set the location where temporary output will be saved, the Scratch GeoDatabase
+    output_gdb = arcpy.env.scratchGDB
+    arcpy.env.workspace = output_gdb
+
+    # ensure the input, if a Path object, truly is a string for the rest of the processing
+    feature_class_to_enrich = str(feature_class_to_enrich)
+
+    # if no logger provided, create one
+    if not logger:
+        logger = get_logger()
+
+    # if an ID field is provided, use it, but if not, use the OID field
+    id_fld = id_field if id_field is not None else arcpy.Describe(feature_class_to_enrich).OIDFieldName
+
+    # check to ensure the variables are all valid
+    invalid_vars = [var for var in enrich_variables if var not in data.enrich_vars_dataframe['enrich_str'].values]
+    if len(invalid_vars):
+        raise Exception(f'One or more of the enrichment variables does not appear to be available - {invalid_vars}. '
+                        f'You can check what variables are available using ba_tools.data.enrich_vars_dataframe. The '
+                        f'enrichment variables must match one of the values in the enrich_str column.')
+
+    # split the list into chunks no larger than n
+    n = 500
+    enrich_var_chunks = [enrich_variables[i * n:(i + 1) * n] for i in range((len(enrich_variables) + n - 1) // n)]
+
+    # enrich by collection with the ability to overcome failed collections
+    for idx, enrich_var_lst in enumerate(enrich_var_chunks):
+        try:
+            # enrich the dataframe using the batch of variables
+            batch_enrich_df = _enrich_wrapper(enrich_var_lst, feature_class_to_enrich, logger, id_field,
+                                              input_feature_class_fields_in_output, return_geometry)
+
+            # if the first one, create and configure the seed Spatially Enabled Dataframe
+            if idx == 0:
+                enrich_df = batch_enrich_df.copy()
+
+                # if there is an id_field provided, do not need the 'OBJECTID' column
+                oid_fld_lst = [c for c in enrich_df.columns if c.lower == 'objectid']
+                if id_field and len(oid_fld_lst):
+                    enrich_df.drop(oid_fld_lst[0], axis=1, inplace=True)
+
+                logger.info(f'Success, seed dataframe with {len(enrich_df.columns)} columns - '
+                            f'{idx + 1}/{len(enrich_var_chunks)}')
+
+            else:
+                # create a dataframe from the enriched feature class and add only new fields onto the master dataframe
+                add_df = batch_enrich_df.copy()
+                new_cols = add_df.columns.difference(enrich_df.columns)
+                add_df.set_index(id_fld, drop=True, inplace=True)
+                enrich_df = enrich_df.merge(add_df[new_cols], on=id_fld, right_index=True)
+
+                logger.info(f'Success, {len(new_cols)} new columns to the combined dataframe, now with '
+                            f'{len(enrich_df.columns)} columns - {idx + 1}/{len(enrich_var_chunks)}')
+
+        except Exception as e:
+            logger.exception(f'Fail - e')
+
+    # set the index
+    enrich_df.set_index(id_fld, drop=True, inplace=True)
+
+    return enrich_df
+
+
 def enrich_all(feature_class_to_enrich:str, id_field:str=None,
                input_feature_class_fields_in_output:bool=False, return_geometry:bool=False,
                logger:logging.Logger=None) -> pd.DataFrame:
@@ -280,8 +357,9 @@ def enrich_all(feature_class_to_enrich:str, id_field:str=None,
                 enrich_df = coll_enrich_df.copy()
 
                 # if there is an id_field provided, do not need the 'OBJECTID' column
-                if id_field and 'OBJECTID' in enrich_df.columns:
-                    enrich_df.drop('OBJECTID', axis=1, inplace=True)
+                oid_fld_lst = [c for c in enrich_df.columns if c.lower == 'objectid']
+                if id_field and len(oid_fld_lst):
+                    enrich_df.drop(oid_fld_lst[0], axis=1, inplace=True)
 
                 logger.info(f'Success, {collection} collection created as seed dataframe from '
                             f'with {len(enrich_df.columns)} columns - {idx + 1}/{len(collection_lst)}')
