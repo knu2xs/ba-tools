@@ -1,3 +1,5 @@
+import logging
+
 from arcgis.features import GeoAccessor
 import arcpy
 import numpy as np
@@ -26,6 +28,9 @@ class _BaseTransformer(BaseEstimator, TransformerMixin):
     """
     Transformer class to save putting the fit method into all the transformers below.
     """
+    def __init__(self, logger:logging.Logger=None):
+        self.logger = logger if logger else utils.get_logger(loglevel='INFO') 
+    
     def fit(self, X, y=None):
         return self
 
@@ -34,16 +39,24 @@ class OriginGeographyFeatureClassToDataframe(_BaseTransformer):
     """
     Use as the starting point to begin building up a dataframe for analysis. This creates a very sparse dataframe with
     one column, object_id, for subsequent use in the analysis pipeline.
+    :param geography_id_field: String field name for the field containing integer values uniquely identifying each 
+        contributing geographic area.
+    :param logger: Logger object instance for tracking progress.
     """
-    def __init__(self, geography_id_field):
+    def __init__(self, geography_id_field:str, logger:logging.Logger=None):
+        super().__init__(logger=logger)
         self.id_fld = geography_id_field
 
-    def transform(self, X, y=None):
+    def transform(self, X:str, y=None)->pd.DataFrame:
         geo_path = str(X)
+
+        self.logger.info(f'OriginGeographyFeatureClassToDataframe transformer starting')
 
         geo_id_lst = [r for r in arcpy.da.SearchCursor(geo_path, self.id_fld)]
         geo_df = pd.DataFrame(geo_id_lst, columns=['origin_id'])
         geo_df['origin_id'] = geo_df['origin_id'].astype('int64')
+
+        self.logger.info(f'OriginGeographyFeatureClassToDataframe successfully completed')
 
         return geo_df
 
@@ -60,9 +73,11 @@ class AddDemographicsToOriginDataframe(_BaseTransformer):
         one hot encoded to be ready for downstream machine learning modeling. Default is True.
     :param rebuild_if_output_exists: Optional boolean indicating if the output should be rebuild if it already exists in
         the interim directory. Default is False
+    :param logger: Logger object instance for tracking progress.
     """
     def __init__(self, origin_geography_layer, geography_id_field, interim_data_directory,
-                 tapestry_one_hot_encoding=True, rebuild_if_output_exists=False):
+                 tapestry_one_hot_encoding=True, rebuild_if_output_exists=False, logger:logging.Logger=None):
+        super().__init__(logger=logger)
         self.origin_lyr = str(origin_geography_layer)
         self.geography_id_fld = geography_id_field
         self.interim_dir = utils.ensure_path(interim_data_directory)
@@ -72,10 +87,12 @@ class AddDemographicsToOriginDataframe(_BaseTransformer):
     def transform(self, X, y=None):
         enrich_csv = self.interim_dir/'origin_demographics.csv'
 
+        self.logger.info(f'AddDemographicsToOriginDataframe transformer starting')
+
         if not enrich_csv.exists() or self.rebuild:
 
             # enrich with all available variables
-            enrich_df = enrich_all(self.origin_lyr, id_field=self.geography_id_fld)
+            enrich_df = enrich_all(self.origin_lyr, id_field=self.geography_id_fld, logger=self.logger)
 
             # since there are two columns for the dominant tapestry segment, drop the numeric one for simplicity's sake
             if 'tapestryhouseholdsNEW_TSEGNUM' in enrich_df.columns:
@@ -95,6 +112,8 @@ class AddDemographicsToOriginDataframe(_BaseTransformer):
         # join the result to the input, and pass downstream
         enrich_joined_df = _join_result_to_X(X, enrich_df)
 
+        self.logger.info(f'AddDemographicsToOriginDataframe successfully completed')
+
         return enrich_joined_df
 
 
@@ -112,9 +131,11 @@ class AddSelectedDemographicsToOriginDataframe(_BaseTransformer):
         one hot encoded to be ready for downstream machine learning modeling. Default is True.
     :param rebuild_if_output_exists: Optional boolean indicating if the output should be rebuild if it already exists in
         the interim directory. Default is False
+    :param logger: Logger object instance for tracking progress.
     """
     def __init__(self, origin_geography_layer, geography_id_field, enrich_variable_list, interim_data_directory,
-                 tapestry_one_hot_encoding=True, rebuild_if_output_exists=False):
+                 tapestry_one_hot_encoding=True, rebuild_if_output_exists=False, logger:logging.Logger=None):
+        super().__init__(logger=logger)
         self.origin_lyr = str(origin_geography_layer)
         self.geography_id_fld = geography_id_field
         self.enrich_vars = enrich_variable_list
@@ -123,6 +144,9 @@ class AddSelectedDemographicsToOriginDataframe(_BaseTransformer):
         self.rebuild = rebuild_if_output_exists
 
     def transform(self, X, y=None):
+
+        self.logger.info(f'AddSelectedDemographicsToOriginDataframe transformer starting')
+
         enrich_csv = self.interim_dir/'origin_demographics.csv'
 
         if not enrich_csv.exists() or self.rebuild:
@@ -148,6 +172,8 @@ class AddSelectedDemographicsToOriginDataframe(_BaseTransformer):
         # join the result to the input, and pass downstream
         enrich_joined_df = _join_result_to_X(X, enrich_df)
 
+        self.logger.info(f'AddSelectedDemographicsToOriginDataframe successfully completed')
+
         return enrich_joined_df
 
 
@@ -163,9 +189,11 @@ class AddTapestryDemographicsToOriginDataframe(_BaseTransformer):
         one hot encoded to be ready for downstream machine learning modeling. Default is True.
     :param rebuild_if_output_exists: Optional boolean indicating if the output should be rebuild if it already exists in
         the interim directory. Default is False
+    :param logger: Logger object instance for tracking progress.
     """
     def __init__(self, origin_geography_layer, geography_id_field, interim_data_directory,
-                 tapestry_one_hot_encoding=True, rebuild_if_output_exists=False):
+                 tapestry_one_hot_encoding=True, rebuild_if_output_exists=False, logger:logging.Logger=None):
+        super().__init__(logger=logger)
         self.origin_lyr = str(origin_geography_layer)
         self.geography_id_fld = geography_id_field
         self.interim_dir = utils.ensure_path(interim_data_directory)
@@ -173,6 +201,9 @@ class AddTapestryDemographicsToOriginDataframe(_BaseTransformer):
         self.rebuild = rebuild_if_output_exists
 
     def transform(self, X, y=None):
+
+        self.logger.info(f'AddTapestryDemographicsToOriginDataframe transformer starting')
+
         enrich_csv = self.interim_dir/'origin_demographics.csv'
 
         # get the tapestry specific enrichment variables less the tapestry segment number as it is redundant
@@ -199,15 +230,19 @@ class AddTapestryDemographicsToOriginDataframe(_BaseTransformer):
         # join the result to the input, and pass downstream
         enrich_joined_df = _join_result_to_X(X, enrich_df)
 
+        self.logger.info(f'AddTapestryDemographicsToOriginDataframe successfully completed')
+
         return enrich_joined_df
 
 
 class AddNearestLocationsToOriginDataframe(_BaseTransformer):
     """
     Add the nearest nth locations to the origin geographies.
+    :param logger: Logger object instance for tracking progress.
     """
     def __init__(self, origin_geography_layer, origin_id_field, location_layer, location_id_field,
-                 destination_count, interim_data_directory, clobbber_previous_results=False):
+                 destination_count, interim_data_directory, clobbber_previous_results=False, logger:logging.Logger=None):
+        super().__init__(logger=logger)
         self.origin_lyr = origin_geography_layer
         self.origin_id_fld = origin_id_field
         self.location_lyr = location_layer
@@ -217,6 +252,9 @@ class AddNearestLocationsToOriginDataframe(_BaseTransformer):
         self.clobber = clobbber_previous_results
 
     def transform(self, X, y=None):
+
+        self.logger.info(f'AddNearestLocationsToOriginDataframe transformer starting')
+
         nearest_csv = self.interim_dir/'nearest_locations.csv'
 
         if not nearest_csv.exists() or self.clobber:
@@ -232,17 +270,21 @@ class AddNearestLocationsToOriginDataframe(_BaseTransformer):
 
         nearest_joined_df = _join_result_to_X(X, nearest_df)
 
+        self.logger.info(f'AddNearestLocationsToOriginDataframe successfully completed')
+
         return nearest_joined_df
 
 
 class AddNearestCompetitionLocationsToOriginDataframe(_BaseTransformer):
     """
     Add the nearest nth locations to the origin geographies.
+    :param logger: Logger object instance for tracking progress.
     """
 
     def __init__(self, origin_geography_layer, origin_id_field, competition_location_layer,
                  competition_location_id_field, destination_count, interim_data_directory,
-                 rebuild_if_output_exists=False):
+                 rebuild_if_output_exists=False, logger:logging.Logger=None):
+        super().__init__(logger=logger)
         self.origin_lyr = origin_geography_layer
         self.origin_id_fld = origin_id_field
         self.location_lyr = competition_location_layer
@@ -252,6 +294,9 @@ class AddNearestCompetitionLocationsToOriginDataframe(_BaseTransformer):
         self.rebuild = rebuild_if_output_exists
 
     def transform(self, X, y=None):
+
+        self.logger.info(f'AddNearestCompetitionLocationsToOriginDataframe transformer starting')
+
         nearest_csv = self.interim_dir / 'nearest_competition_locations.csv'
 
         if not nearest_csv.exists() or self.rebuild:
@@ -270,6 +315,8 @@ class AddNearestCompetitionLocationsToOriginDataframe(_BaseTransformer):
 
         nearest_joined_df = _join_result_to_X(X, nearest_df)
 
+        self.logger.info(f'AddNearestCompetitionLocationsToOriginDataframe successfully completed')
+
         return nearest_joined_df
 
 
@@ -277,72 +324,121 @@ class ExcludeColumnsByStartswith(_BaseTransformer):
     """
     Exclude DataFrame columns based on the string pattern the column starts with.
     :param string_pattern: Either a single, or multiple string patterns as a list to exclude based on.
+    :param logger: Logger object instance for tracking progress.
     """
-    def __init__(self, string_pattern:[str, list]):
+    def __init__(self, string_pattern:[str, list], logger:logging.Logger=None, transformer_name:str=None):
+        super().__init__(logger=logger)
+        
         if isinstance(string_pattern, str):
             self.str_pattern = [string_pattern]
         else:
             self.str_pattern = string_pattern
+        
+        self.trans_name = 'ExcludeColumnsByStartswith' if not transformer_name else transformer_name
 
     def transform(self, X, y=None):
+
+        self.logger.info(f'{self.trans_name} transformer starting')
+
         keep_cols = [col for col in X.columns if not col.startswith(tuple(self.str_pattern))]
-        return X[keep_cols].copy()
+        out_df = X[keep_cols].copy()
+
+        self.logger.info(f'{self.trans_name} successfully completed')
+
+        return out_df
 
 
 class ExcludeColumnsByEndswith(_BaseTransformer):
     """
     Exclude DataFrame columns based on the string pattern the column ends with.
     :param string_pattern: Either a single, or multiple string patterns as a list to exclude based on.
+    :param logger: Logger object instance for tracking progress.
     """
-    def __init__(self, string_pattern:[str, list]):
+    def __init__(self, string_pattern:[str, list], logger:logging.Logger=None, transformer_name:str=None):
+        super().__init__(logger=logger)
+
         if isinstance(string_pattern, str):
             self.str_pattern = [string_pattern]
         else:
             self.str_pattern = string_pattern
+        
+        self.trans_name = 'ExcludeColumnsByEndswith' if not transformer_name else transformer_name
 
     def transform(self, X, y=None):
+
+        self.logger.info(f'{self.trans_name} transformer starting')
+
         keep_cols = [col for col in X.columns if not col.endswith(tuple(self.str_pattern))]
-        return X[keep_cols].copy()
+        out_df = X[keep_cols].copy()
+
+        self.logger.info(f'{self.trans_name} successfully completed')
+        
+        return out_df
 
 
 class ExcludeColumnsByContains(_BaseTransformer):
     """
     Exclude DataFrame columns based on the string pattern the column contains.
     :param string_pattern: Either a single, or multiple string patterns as a list to exclude based on.
+    :param logger: Logger object instance for tracking progress.
     """
 
-    def __init__(self, string_pattern: [str, list]):
+    def __init__(self, string_pattern: [str, list], logger:logging.Logger=None, transformer_name:str=None):
+        super().__init__(logger=logger)
+
         if isinstance(string_pattern, str):
             self.str_pattern = [string_pattern]
         else:
             self.str_pattern = string_pattern
 
+        self.trans_name = 'ExcludeColumnsByContains' if not transformer_name else transformer_name
+
     def transform(self, X, y=None):
+
+        self.logger.info(f'{self.trans_name} transformer starting')
+
         keep_cols = [col for col in X.columns if all([col.find(str_patt) < 0 for str_patt in self.str_pattern])]
-        return X[keep_cols].copy()
+        out_df = X[keep_cols].copy()
+
+        self.logger.info(f'{self.trans_name} successfully completed')
+
+        return out_df
 
 
 class ExcludeFutureYearColumns(ExcludeColumnsByEndswith):
     """
     Exclude the future year columns many times included with enriched data.
+    :param logger: Logger object instance for tracking progress.
     """
-    def __init__(self):
-        super().__init__('_FY')
+    def __init__(self, logger:logging.Logger=None):
+        super().__init__(string_pattern='_FY', logger=logger, transformer_name='ExcludeFutureYearColumns')
 
 
 class ExcludeDestinationIdColumns(ExcludeColumnsByStartswith):
     """
     Exclude the destination_id columns.
+    :param logger: Logger object instance for tracking progress.
     """
-    def __init__(self):
-        super().__init__('destination_id')
+    def __init__(self, logger:logging.Logger=None):
+        super().__init__(string_pattern='destination_id', logger=logger, transformer_name='ExcludeDestinationIdColumns')
 
 
 class ExcludeStringColumns(_BaseTransformer):
     """
     Exclude String/Object columns.
+    :param logger: Logger object instance for tracking progress.
     """
+    def __init__(self, logger:logging.Logger=None):
+        super().__init__(logger=logger)
+
     def transform(self, X, y=None):
+
+        self.logger.info(f'ExcludeStringColumns transformer starting')
+
         str_cols = X.select_dtypes('object').columns
         keep_cols = [col for col in X.columns if not col in str_cols]
-        return X[keep_cols].copy()
+        out_df = X[keep_cols].copy()
+
+        self.logger.info(f'ExcludeStringColumns successfully completed')
+        
+        return out_df
