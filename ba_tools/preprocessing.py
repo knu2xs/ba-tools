@@ -85,7 +85,7 @@ class AddDemographicsToOriginDataframe(_BaseTransformer):
         self.rebuild = rebuild_if_output_exists
 
     def transform(self, X, y=None):
-        enrich_csv = self.interim_dir/'origin_demographics.csv'
+        enrich_csv = self.interim_dir/'origin_demographics_all.csv'
 
         self.logger.info(f'AddDemographicsToOriginDataframe transformer starting')
 
@@ -147,7 +147,7 @@ class AddSelectedDemographicsToOriginDataframe(_BaseTransformer):
 
         self.logger.info(f'AddSelectedDemographicsToOriginDataframe transformer starting')
 
-        enrich_csv = self.interim_dir/'origin_demographics.csv'
+        enrich_csv = self.interim_dir/'origin_demographics_select.csv'
 
         if not enrich_csv.exists() or self.rebuild:
 
@@ -204,7 +204,7 @@ class AddTapestryDemographicsToOriginDataframe(_BaseTransformer):
 
         self.logger.info(f'AddTapestryDemographicsToOriginDataframe transformer starting')
 
-        enrich_csv = self.interim_dir/'origin_demographics.csv'
+        enrich_csv = self.interim_dir/'origin_demographics_tapestry.csv'
 
         # get the tapestry specific enrichment variables less the tapestry segment number as it is redundant
         df_enrich = data.enrich_vars_dataframe
@@ -411,7 +411,7 @@ class ExcludeFutureYearColumns(ExcludeColumnsByEndswith):
     :param logger: Logger object instance for tracking progress.
     """
     def __init__(self, logger:logging.Logger=None):
-        super().__init__(string_pattern='_FY', logger=logger, transformer_name='ExcludeFutureYearColumns')
+        super().__init__(string_pattern=['_FY', 'CYFY'], logger=logger, transformer_name='ExcludeFutureYearColumns')
 
 
 class ExcludeDestinationIdColumns(ExcludeColumnsByStartswith):

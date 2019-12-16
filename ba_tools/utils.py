@@ -107,7 +107,9 @@ def get_dataframe(in_features, gis=None):
     return df
 
 
-def add_metric_by_origin_dest(parent_df, join_df, join_metric_fld, fill_na_value=None):
+def add_metric_by_origin_dest(parent_df:pd.DataFrame, join_df:pd.DataFrame, join_metric_fld:str,
+                              fill_na_value:[str, int]=None, origin_id_column:str='origin_id',
+                              destination_id_column_prefix:str='destination_id') -> pd.DataFrame:
     """
     Add a field to an already exploded origin to multiple destination table. The table must follow the standardized
         schema, which it will if created using the proximity functions in this package.
@@ -116,19 +118,22 @@ def add_metric_by_origin_dest(parent_df, join_df, join_metric_fld, fill_na_value
     :param join_metric_fld: The column containing the metric to be added.
     :param fill_na_value: Optional - String or integer to fill null values with. If not used, null values will not be
         filled.
+    :param origin_id_column: Optional - String name of column containing the geographic origin_id values.
+    :param destination_id_column_prefix: Optional - String name of column prefix for columns containing the
+        destination_id values.
     :return: Dataframe with the data added onto the original origin to multiple destination table.
     """
     # ensure everything is matching field types so the joins will work
-    origin_dtype = parent_df['origin_id'].dtype
-    dest_dtype = parent_df['destination_id_01'].dtype
-    join_df['origin_id'] = join_df['origin_id'].astype(origin_dtype)
-    join_df['destination_id'] = join_df['destination_id'].astype(dest_dtype)
+    origin_dtype = parent_df[origin_id_column].dtype
+    dest_dtype = parent_df[f'{destination_id_column_prefix}_01'].dtype
+    join_df[origin_id_column] = join_df[origin_id_column].astype(origin_dtype)
+    join_df[destination_id_column_prefix] = join_df[destination_id_column_prefix].astype(dest_dtype)
 
     # for the table being joined to the parent, set a multi-index for the join
-    join_df_idx = join_df.set_index(['origin_id', 'destination_id'])
+    join_df_idx = join_df.set_index([origin_id_column, destination_id_column_prefix])
 
     # get the number of destinations being used
-    dest_fld_lst = [col for col in parent_df.columns if col.startswith('destination_id_')]
+    dest_fld_lst = [col for col in parent_df.columns if col.startswith(f'{destination_id_column_prefix}_')]
 
     # initialize the dataframe to iteratively receive all the data
     combined_df = parent_df
@@ -139,7 +144,7 @@ def add_metric_by_origin_dest(parent_df, join_df, join_metric_fld, fill_na_value
         out_metric_fld = f'{join_metric_fld}{dest_fld[-3:]}'
 
         # join the label field onto the parent dataframe
-        combined_df = combined_df.join(join_df_idx[join_metric_fld], on=['origin_id', dest_fld])
+        combined_df = combined_df.join(join_df_idx[join_metric_fld], on=[origin_id_column, dest_fld])
 
         # rename the label column using the named label column with the destination id
         combined_df.columns = [out_metric_fld if col == join_metric_fld else col for col in combined_df.columns]
@@ -151,7 +156,9 @@ def add_metric_by_origin_dest(parent_df, join_df, join_metric_fld, fill_na_value
     return combined_df
 
 
-def add_metric_by_dest(parent_df, join_df, join_id_fld, join_metric_fld, get_dummies=False, fill_na_value=None):
+def add_metric_by_dest(parent_df:pd.DataFrame, join_df:pd.DataFrame, join_id_fld:str, join_metric_fld:str,
+                       get_dummies:bool=False, fill_na_value:[str, int]=False, origin_id_column:str='origin_id',
+                       destination_id_column_prefix:str='destination_id') -> pd.DataFrame:
     """
     Add a field to an already exploded origin to multiple destination table. The table must follow the standardized
         schema, which it will if created using the proximity functions in this package.
@@ -162,20 +169,23 @@ def add_metric_by_dest(parent_df, join_df, join_id_fld, join_metric_fld, get_dum
     :param get_dummies: Optional - Boolean indicating if make dummies should be run to explode out categorical values.
     :param fill_na_value: Optional - String or integer to fill null values with. If not used, null values will not be
         filled.
+    :param origin_id_column: Optional - String name of column containing the geographic origin_id values.
+    :param destination_id_column_prefix: Optional - String name of column prefix for columns containing the
+        destination_id values.
     :return: Dataframe with the data added onto the original origin to multiple destination table.
     """
     # ensure everything is matching field types so the joins will work
-    if parent_df['origin_id'].dtype == 'O':
+    if parent_df[origin_id_column].dtype == 'O':
         convert_dtype = str
     else:
-        convert_dtype = parent_df['origin_id'].dtype
+        convert_dtype = parent_df[origin_id_column].dtype
     join_df[join_id_fld] = join_df[join_id_fld].astype(convert_dtype)
 
-    # for the table being joined to the parent set the index for the join
+    # for the table being joined to the parent, set the index for the join
     join_df_idx = join_df.set_index(join_id_fld)
 
     # get the number of destinations being used
-    dest_fld_lst = [col for col in parent_df.columns if col.startswith('destination_id_')]
+    dest_fld_lst = [col for col in parent_df.columns if col.startswith(f'{destination_id_column_prefix}_')]
 
     # initialize the dataframe to iteratively receive all the data
     combined_df = parent_df
@@ -327,7 +337,7 @@ class Environment:
         else:
             extension_lst = ['3D', 'Datareviewer', 'DataInteroperability', 'Airports', 'Aeronautical', 'Bathymetry',
                              'Nautical', 'GeoStats', 'Network', 'Spatial', 'Schematics', 'Tracking', 'JTX', 'ArcScan',
-                             'Business', 'Defense', 'Foundation' ,'Highways', 'StreetMap']
+                             'Business', 'Defense', 'Foundation', 'Highways', 'StreetMap']
 
             import arcpy
             for extension in extension_lst:
@@ -357,16 +367,21 @@ def get_logger(loglevel:str='WARNING', logfile:str=None) -> logging.Logger:
 
     c_handler = logging.StreamHandler()
 
+    formatter = logging.Formatter(
+        fmt='%(asctime)s.%(msecs)03d %(levelname)s %(module)s - %(funcName)s: %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
     if logfile is None:
         f_handler = logging.FileHandler(f'{__name__}_logfile.log')
         f_handler.setLevel(loglevel)
-        f_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        f_handler.setFormatter(formatter)
         logger.addHandler(f_handler)
     else:
         f_handler = logging.FileHandler(logfile)
         for handler in [c_handler, f_handler]:
             handler.setLevel(loglevel)
-            handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+            handler.setFormatter(formatter)
             logger.addHandler(handler)
 
     return logger
@@ -391,14 +406,36 @@ def ensure_path(path:[str, pathlib.Path]):
     return path if isinstance(path, pathlib.Path) else pathlib.Path(path)
 
 
-def summarize_by_geography(input_point_features:[str, pathlib.Path], point_sum_fields:[list],
-                           input_grouping_polygons:[str, pathlib.Path], polygon_id_field:str=None):
+def count_by_polygon(input_point_features:[str, pathlib.Path], point_sum_fields:[list],
+                     input_grouping_polygons:[str, pathlib.Path], polygon_id_field:str):
     """
-    Summarize
-    :param input_point_features:
-    :param point_sum_fields:
-    :param input_grouping_polygons:
-    :param polygon_id_field:
-    :return:
+    Get the point count by unique categorical values in one or more columns and by the containing geographic area the
+        points are contained in.
+    :param input_point_features: Point features as a string path to a feature class or Path object.
+    :param point_sum_fields: List of string field names the points will be summarized on.
+    :param input_grouping_polygons: Polygon features points will be evaluated against for summarization.
+    :param polygon_id_field: String field name uniquely identifying each of the containing polygon areas.
+    :return: Pandas dataframe with the unique count of each discrete combination of categorical point fields and the
+        containing geography.
     """
-    pass
+    # load the inputs into spatially enabled dataframes
+    input_df = get_dataframe(input_point_features)
+    poly_df = get_dataframe(input_grouping_polygons)
+
+    # ensure both spatially enabled dataframes have a spatial index for speeding up intersection calculations
+    input_df.spatial.sindex()
+    poly_df.spatial.sindex()
+
+    # perform a spatial join and only keep the field identifying the polygons
+    join_df = input_df.spatial.join(poly_df[[polygon_id_field, 'SHAPE']])
+
+    # group by input point grouping fields and the optional polygon grouping field as well if provided
+    if polygon_id_field:
+        group_fields = [polygon_id_field] + point_sum_fields
+    else:
+        group_fields = point_sum_fields
+
+    # get summarized counts
+    sum_df = join_df.groupby(group_fields).size().reset_index(name='count')
+
+    return sum_df

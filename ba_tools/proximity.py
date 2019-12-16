@@ -273,7 +273,7 @@ def _get_closest_df_arcpy(origin_df, dest_df, dest_count, network_dataset, max_d
     return closest_df
 
 
-def _get_closest_csv(origin_df, dest_df, dest_count, gis, max_dist=None):
+def _get_closest_csv_rest(origin_df, dest_df, dest_count, gis, max_dist=None):
     """
     Enables batch processing of get closest by saving iterative results to a temp csv file to avoid memory overruns.
     :param origin_df: Origin points Spatially Enabled Dataframe
@@ -406,7 +406,7 @@ def get_closest_solution(origins, origin_id_fld, destinations, dest_id_fld, gis=
         if len(origin_df.index) > max_origin_cnt:
 
             # process each batch, and save the results to a temp file in the temp directory
-            closest_csv_list = [_get_closest_csv(origin_df.iloc[idx:idx + max_origin_cnt], dest_df, destination_count, gis)
+            closest_csv_list = [_get_closest_csv_rest(origin_df.iloc[idx:idx + max_origin_cnt], dest_df, destination_count, gis)
                                 for idx in range(0, len(origin_df.index), max_origin_cnt)]
 
             # load all the temporary files into dataframes and combine them into a single dataframe
