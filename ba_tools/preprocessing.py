@@ -487,7 +487,8 @@ class ExcludeDestinationIdColumns(ExcludeColumnsByStartswith):
     :param logger: Logger object instance for tracking progress.
     """
     def __init__(self, logger:logging.Logger=None):
-        super().__init__(string_pattern='destination_id', logger=logger, transformer_name='ExcludeDestinationIdColumns')
+        super().__init__(string_pattern=['destination_id', 'destination_competition_id'], logger=logger,
+                         transformer_name='ExcludeDestinationIdColumns')
 
 
 class ExcludeStringColumns(_BaseTransformer):
