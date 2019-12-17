@@ -320,6 +320,34 @@ class AddNearestCompetitionLocationsToOriginDataframe(_BaseTransformer):
         return nearest_joined_df
 
 
+class ExcludeColumnsByName(_BaseTransformer):
+    """
+    Exclude DataFrame column based on the name of the column.
+    :param columns: Either a single, or multiple column names.
+    :param logger: Logger object instance for tracking progress.
+    """
+    def __init__(self, columns:[str, list], logger:logging.Logger=None, transformer_name:str=None):
+        super().__init__(logger=logger)
+
+        if isinstance(columns, str):
+            self.columns = [columns]
+        else:
+            self.columns = columns
+
+        self.trans_name = 'ExcludeColumnsByStartswith' if not transformer_name else transformer_name
+
+    def transform(self, X, y=None):
+
+        self.logger.info(f'{self.trans_name} transformer starting')
+
+        keep_cols = [col for col in X.columns if not col in self.columns]
+        out_df = X[keep_cols].copy()
+
+        self.logger.info(f'{self.trans_name} successfully completed')
+
+        return out_df
+
+
 class ExcludeColumnsByStartswith(_BaseTransformer):
     """
     Exclude DataFrame columns based on the string pattern the column starts with.
