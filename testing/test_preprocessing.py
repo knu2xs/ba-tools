@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 
 import pandas as pd
+import numpy as np
 from sklearn.pipeline import Pipeline
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -133,6 +134,18 @@ def test_add_nearest_competition_locations():
 
     out_path = scratch_dir/'nearest_locations.csv'
     assert (isinstance(df, pd.DataFrame) and out_path.exists())
+
+
+def test_standard_scaler():
+    test_df = pd.DataFrame()
+    test_df['factor_01'] = np.random.randint(1, 100, 50)
+    test_df['factor_02'] = np.random.randint(1, 100, 50)
+    test_df['label'] = np.random.randint(1, 10, 50)
+    test_df['origin_id'] = test_df.index
+    trans = preprocessing.StandardScaler('label')
+    out_df = trans.fit_transform(test_df)
+    assert(isinstance(out_df, pd.DataFrame))
+
 
 def test_exclude_by_name():
     start_count = len(cols_df.columns)
