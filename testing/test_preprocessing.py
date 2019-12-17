@@ -134,6 +134,13 @@ def test_add_nearest_competition_locations():
     out_path = scratch_dir/'nearest_locations.csv'
     assert (isinstance(df, pd.DataFrame) and out_path.exists())
 
+def test_exclude_by_name():
+    start_count = len(cols_df.columns)
+    trans = preprocessing.ExcludeColumnsByName('run_fast')
+    out_df = trans.fit_transform(cols_df)
+    out_count = len(out_df.columns)
+    assert(out_count == start_count - 1)
+
 
 def test_exclude_startswith():
     start_count = len(cols_df.columns)
