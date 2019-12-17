@@ -327,12 +327,21 @@ class StandardScaler(_BaseTransformer):
     just a NumPy array.
     :param label_column: Column being used as label for model training.
     """
-    def __init__(self, label_column:str):
+    def __init__(self, label_column:str, id_column:str='origin_id'):
         self.lbl_col = label_column
+        self.id_col = id_column
 
     def transform(self, X, y=None):
-        # create the input for the scaler by moving the origin id ot the index and dropping the labels
-        in_df = X.set_index('origin_id', drop=True).drop(columns=self.lbl_col)
+
+        # if the origin id field is in there, set it as the index to move it out of the normal columns
+        if self.id_col in X.columns:
+            X.set_index(self.id_col, drop=True, inplace=True)
+        else:
+            raise Exception(f'The id_column provided for StandardScaler, {self.id_col}, does not appear to be in the '
+                            f'table.')
+
+        # create the input for the scaler by dropping the labels
+        in_df = X.drop(columns=self.lbl_col)
 
         # scale the values being used for input
         std_sclr = preprocessing.StandardScaler()
@@ -345,7 +354,7 @@ class StandardScaler(_BaseTransformer):
         std_df.insert(0, 'origin_id', in_df.index)
 
         # add the labels back on by joining on the origin id
-        std_df = std_df.join(X.set_index('origin_id')[self.lbl_col], on='origin_id')
+        std_df = std_df.join(X[self.lbl_col], on='origin_id')
 
         return std_df
 
