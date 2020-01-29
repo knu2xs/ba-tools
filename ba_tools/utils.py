@@ -439,3 +439,101 @@ def count_by_polygon(input_point_features:[str, pathlib.Path], point_sum_fields:
     sum_df = join_df.groupby(group_fields).size().reset_index(name='count')
 
     return sum_df
+
+
+def get_hexbins(output_feature_class:str, hex_spacing:int, aoi_fc:str,
+                spatial_reference_wkid:[int, str]=3857) -> pathlib.Path:
+    """
+    :param output_feature_class: String path to the location where the output hexbin feature class will be saved.
+    :param hex_spacing: Desired horizontal spacing from center to center for the hexbins in meters.
+    :param aoi_fc: Polygon feature class delineating the area of interest to be covered by the hexbins.
+    :param spatial_reference_wkid: Optional WKID for output spatial reference for output hexbins.
+    :return: Path object to output hexbins feature class.
+    """
+    # convert to integer if string just to make sure it doesn't hiccup
+    wkid = int(spatial_reference_wkid) if isinstance(spatial_reference_wkid, str) else spatial_reference_wkid
+
+    # calculate area from center to center spacing assuming hexbins long axis
+    hex_area = 3/2 * math.sqrt(3) * (hex_spacing / 2) ** 2
+
+    # create the hexbins in the specified spatial reference
+    hexbin_fc = arcpy.management.GenerateTessellation(
+        Output_Feature_Class=output_feature_class,
+        Extent=arcpy.Describe(aoi_fc).extent.projectAs(arcpy.SpatialReference(wkid)),
+        Shape_Type='HEXAGON',
+        Size=f'{hex_area} SquareMeters',
+        Spatial_Reference=arcpy.SpatialReference(wkid)
+    )[0]
+
+    # create layers for the data delineating the AOI and the new hexbins
+    if isinstance(aoi_fc, arcpy._mp.Layer):
+        aoi_lyr = aoi_fc
+    else:
+        aoi_lyr = arcpy.management.MakeFeatureLayer(aoi_fc)[0]
+    hexbin_lyr = arcpy.management.MakeFeatureLayer(hexbin_fc)[0]
+
+    # use select by location to identify the hexbins NOT touching the AOI
+    arcpy.management.SelectLayerByLocation(
+        in_layer=hexbin_lyr,
+        overlap_type='INTERSECT',
+        select_features=aoi_lyr,
+        invert_spatial_relationship=True,
+    )
+
+    # remove the hexbins not touching the AOI
+    arcpy.management.DeleteFeatures(hexbin_lyr)
+
+    return pathlib.Path(hexbin_fc)
+
+
+def flag_accessible_hexbins(polygon_feature_class:[pathlib.Path, str], network_dataset:[pathlib.Path, str],
+                            analysis_fld:str='use_for_analysis') -> pathlib.Path:
+    """
+    Flag the transportation network accessible and inaccessible features, saving results to an integer field with
+        true (1) and false (0) values.
+    :param polygon_feature_class: Input polygon features to be evaluated for accessibility.
+    :param network_dataset: Transportation network dataset to be evaluated against for accessibility.
+    :param analysis_fld: Optional field name for field to save the boolean values. Does not need to exist. Default is
+        use_for_analysis.
+    """
+
+    # get the roads layer from the network dataset and create a layer for the roads
+    network_dataset = str(network_dataset) if isinstance(network_dataset, pathlib.Path) else network_dataset
+    edge_desc = arcpy.Describe(network_dataset).edgeSources[0]
+    roads_fc = os.path.join(os.path.dirname(network_dataset), edge_desc.name)
+    roads_lyr = arcpy.management.MakeFeatureLayer(roads_fc)[0]
+
+    # create a layer from the input hexbins feature class
+    hexbins_fc = str(polygon_feature_class) if isinstance(polygon_feature_class, pathlib.Path) else polygon_feature_class
+    hexbins_lyr = arcpy.management.MakeFeatureLayer(hexbins_fc)
+
+    # if the field to be used for flagging road accessible hexbins does not exist, create it
+    fld_nm_lst = [fld.name for fld in arcpy.ListFields(hexbins_lyr)]
+    if analysis_fld not in fld_nm_lst:
+        arcpy.management.AddField(
+            in_table=hexbins_lyr,
+            field_name=analysis_fld,
+            field_type='SHORT'
+        )
+
+    # select all the hexbins intersecting with the roads
+    arcpy.management.SelectLayerByLocation(
+        in_layer=hexbins_lyr,
+        overlap_type='INTERSECT',
+        select_features=roads_lyr
+    )
+
+    # populate the flagging field with a boolean true (1)
+    with arcpy.da.UpdateCursor(hexbins_lyr, analysis_fld) as update_cur:
+        for row in update_cur:
+            row[0] = 1
+            update_cur.updateRow(row)
+
+    # for the rest of the features, flag with false (0)
+    with arcpy.da.UpdateCursor(hexbins_fc, analysis_fld) as update_cur:
+        for row in update_cur:
+            if row[0] != 1:
+                row[0] = 0
+            update_cur.updateRow(row)
+
+    return pathlib.Path(hexbins_fc)
