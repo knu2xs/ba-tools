@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 from arcgis.features import GeoAccessor
 import arcpy
@@ -510,3 +511,41 @@ class ExcludeStringColumns(_BaseTransformer):
         self.logger.info(f'ExcludeStringColumns successfully completed')
         
         return out_df
+
+
+class GenerateHexbins(_BaseTransformer):
+    """
+    Generate hexbins covering the area of interest.
+    :param output_hexbin_feature_class: String path to output feature class.
+    :param hexbin_spacing: Integer value representing the center to center horizontal spacing for the hexbins in meters.
+    """
+    def __init__(self, output_hexbin_feature_class:[str, Path], area_of_interest_feature_class:[str, Path],
+                 hexbin_spacing:[int, float]=3000):
+        self.out_fc = str(output_hexbin_feature_class) if isinstance(output_hexbin_feature_class, Path) else \
+            output_hexbin_feature_class
+        self.aoi_fc = str(area_of_interest_feature_class) if isinstance(area_of_interest_feature_class, Path) else \
+            area_of_interest_feature_class
+        self.spacing = hexbin_spacing
+
+    def transform(self, X=None, y=None):
+        # create the hexbins
+        hexbins_fc_pth = utils.get_hexbins(self.out_fc, self.spacing, self.aoi_fc)
+        return hexbins_fc_pth
+
+
+class FlagAccessibility(_BaseTransformer):
+    """
+    Flag hexbins based on their accessibility, whether they can
+    :param network_dataset: Optional network dataset for determining if cells are on network edges. If not provided,
+        the USA Network installed with Business Analyst is used.
+    """
+    def __init__(self, network_dataset:[str, Path]=None):
+        if network_dataset is not None:
+            self.network_dataset = str(network_dataset) if isinstance(network_dataset, Path) else network_dataset
+        else:
+            self.network_dataset = data.usa_network_dataset
+
+    def transform(self, X=None, y=None):
+        hexbins_fc = str(X) if isinstance(X, Path) else X
+        hexbins_fc_pth = utils.flag_accessible_hexbins(hexbins_fc, self.network_dataset)
+        return hexbins_fc_pth
