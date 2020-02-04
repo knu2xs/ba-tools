@@ -2,12 +2,14 @@ import os
 from pathlib import Path
 import sys
 
-import pandas as pd
+from arcgis import GeoAccessor
 import numpy as np
+import pandas as pd
+import pytest
 from sklearn.pipeline import Pipeline
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from ba_tools import preprocessing, data
+from ba_tools import preprocessing, data, utils
 
 data_dir = Path(__file__).parent/'test_data'
 gdb = data_dir/'test_data.gdb'
@@ -193,3 +195,27 @@ def test_exclude_fy():
     out_df = trans.fit_transform(cols_df)
     out_count = len(out_df.columns)
     assert(out_count == start_count-1)
+
+
+def test_generate_hexbins():
+    output_hexbins = 'memory/test_hexbins'
+    hex_pipe = Pipeline([
+        ('generate_hexbins', preprocessing.GenerateHexbins(output_hexbins, block_groups))
+    ])
+    hex_pipe.fit_transform(None)
+    hex_df = GeoAccessor.from_featureclass(output_hexbins)
+    assert(len(hex_df.index))
+
+
+@pytest.fixture
+def hexbins():
+    return str(utils.get_hexbins('memory/testing_hexbins', 3000, block_groups))
+
+
+def test_flag_accessible(hexbins):
+    flag_pipe = Pipeline([
+        ('flag_hex', preprocessing.FlagAccessibility())
+    ])
+    flag_pipe.fit_transform(hexbins)
+    hex_df = GeoAccessor.from_featureclass(flag_pipe)
+    assert(hex_df.use_for_analysis.isnull().sum() == 0)
