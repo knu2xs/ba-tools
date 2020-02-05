@@ -288,7 +288,7 @@ def enrich(feature_class_to_enrich:str, enrich_variables:list, id_field:str=None
             if idx == 0:
                 enrich_df = batch_enrich_df.copy()
 
-                # if there is an id_field provided, do not need the 'OBJECTID' column
+                # if there is an proximity_id_field provided, do not need the 'OBJECTID' column
                 oid_fld_lst = [c for c in enrich_df.columns if c.lower == 'objectid']
                 if id_field and len(oid_fld_lst):
                     enrich_df.drop(oid_fld_lst[0], axis=1, inplace=True)
@@ -356,7 +356,7 @@ def enrich_all(feature_class_to_enrich:str, id_field:str=None,
             if idx == 0:
                 enrich_df = coll_enrich_df.copy()
 
-                # if there is an id_field provided, do not need the 'OBJECTID' column
+                # if there is an proximity_id_field provided, do not need the 'OBJECTID' column
                 oid_fld_lst = [c for c in enrich_df.columns if c.lower == 'objectid']
                 if id_field and len(oid_fld_lst):
                     enrich_df.drop(oid_fld_lst[0], axis=1, inplace=True)

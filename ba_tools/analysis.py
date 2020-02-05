@@ -12,7 +12,7 @@ from tempfile import gettempdir
 
 from ._data import data
 from . import proximity
-from .utils import get_dataframe, get_logger
+from .utils import get_dataframe, get_logger, get_destination_id_list_from_near_df_for_origin_id
 from .enrich import enrich_all
 
 
@@ -202,8 +202,8 @@ def get_add_new_closest_dataframe(origins: [str, pd.DataFrame], origin_id_field:
     dest_count = len(dest_cols)
 
     # load the original origins into a dataframe and format it for analysis
-    origin_df = get_dataframe(origins)
-    origin_df = proximity.prep_sdf_for_nearest(origin_df, origin_id_field, origin_weighting_points)
+    origin_df_poly = get_dataframe(origins)
+    origin_df = proximity.prep_sdf_for_nearest(origin_df_poly, origin_id_field, origin_weighting_points)
 
     # load the original destinations into a dataframe and format it for analysis
     dest_df = get_dataframe(destinations)
@@ -214,22 +214,15 @@ def get_add_new_closest_dataframe(origins: [str, pd.DataFrame], origin_id_field:
     new_df = pd.DataFrame([[new_id, new_id, new_destination]], columns=['ID', 'Name', 'SHAPE'])
     new_df.spatial.set_geometry('SHAPE')
 
-    # if a GIS is provided, use online resources
-    if gis is not None:
-        # get the nth closest destination locations to the new destination location
-        closest_dest_df = proximity.get_closest_solution(new_df, 'ID', dest_df, 'ID', gis=gis,
-                                                         destination_count=dest_count)
-
-    # otherwise, use local solver
-    else:
-
-        # get the nth closest destination locations to the new destination location
-        closest_dest_df = proximity.get_closest_solution(new_df, 'ID', dest_df, 'ID',
-                                                         network_dataset=data.usa_network_dataset,
-                                                         destination_count=dest_count)
+    # ensure the dataframes are in the same spatial reference and then get the id of the origin the new point resides in
+    coincidence_new_dest = new_destination.project_as(origin_df.spatial.sr)
+    for row in origin_df_poly.itertuples(name='dest'):
+        geom = row.SHAPE
+        if geom.contains(coincidence_new_dest):
+            dest_id = getattr(row, origin_id_field)
 
     # get the destination ids of the existing nth closest destinations
-    dest_subset_ids = closest_dest_df['destination_id'].values
+    dest_subset_ids = get_destination_id_list_from_near_df_for_origin_id(closest_orig_df, dest_id)
 
     # by cross referencing from the destination ids, get the origin ids allocated to the exiting locations
     subset_origin_ids = pd.concat([closest_orig_df[closest_orig_df[dest_col].isin(dest_subset_ids)]['origin_id']

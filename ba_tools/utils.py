@@ -355,6 +355,55 @@ class Environment:
                             f'using the correct reference.')
 
 
+def get_destination_id_list_from_near_df_for_origin_id(proximity_df:pd.DataFrame, destination_id:[int, str],
+                                                       proximity_id_field:str= 'origin_id',
+                                                       destination_id_prefix:str='destination_id') -> list:
+    """
+    Get a list of destination ID's from a dataframe with a single row for each origin and multiple destination proximity
+        metrics.
+    :param proximity_df: Dataframe with a column uniquely identifying the origin ID, and multiple destination_id
+        columns.
+    :param destination_id: Destination ID identifying the row by the origin_id to collect the destination ID's from.
+    :param proximity_id_field: Optional origin ID field uniquely idenftifying each row in the proximity_df. The
+        destination_id value must be one of the values in this field for the function to work. The default is origin_id.
+    :param destination_id_prefix: Optional prefix identifying the destination_id fields. The default is destination_id.
+    """
+    # set a flag for using later
+    dest_id_int = False
+
+    # if the id's in the origin ID table are integer due to being loaded from a csv, ensure the destination is as well
+    if proximity_df[proximity_id_field].dtype.name.startswith('int'):
+        destination_id = int(destination_id)
+
+        # set a flag for using later
+        dest_id_int = True
+
+    # if the origin ID table values are strings and the destination id is a numeric integer
+    elif proximity_df[proximity_id_field].dtype.name == 'object' and float(destination_id).is_integer() and \
+            destination_id.isnumeric():
+
+        # get the length of the id's from the origin table, and use this to left pad with zeros
+        id_length = proximity_df[proximity_id_field].str.len().nlargest(n=1).iloc[0]
+        destination_id = f'{destination_id}'.zfill(int(id_length))
+
+        # set a flag for using later
+        dest_id_int = True
+
+    # now get the series matching the origin id the new point falls within
+    match_srs = proximity_df[proximity_df[proximity_id_field] == destination_id].iloc[0]
+
+    # get a list of only the field names with destination id's
+    dest_id_col_lst = [col for col in proximity_df.columns if col.startswith(destination_id_prefix)]
+
+    # pull out the destination id's to a numpy array
+    dest_id_lst = list(match_srs[dest_id_col_lst].values)
+
+    # format if numeric
+    dest_id_lst = [int(d_id) for d_id in dest_id_lst] if dest_id_int else dest_id_lst
+
+    return dest_id_lst
+
+
 def get_logger(loglevel:str='WARNING', logfile:str=None) -> logging.Logger:
     """
     Make logging much easier by outputting directly to console and local logfile.
@@ -450,6 +499,11 @@ def get_hexbins(output_feature_class:str, hex_spacing:int, aoi_fc:str,
     :param spatial_reference_wkid: Optional WKID for output spatial reference for output hexbins.
     :return: Path object to output hexbins feature class.
     """
+    # if the inputs are a Path object, convert it to a string
+    aoi_fc = str(aoi_fc) if isinstance(aoi_fc, pathlib.Path) else aoi_fc
+    output_feature_class = str(output_feature_class) if isinstance(output_feature_class, pathlib.Path) else \
+        output_feature_class
+
     # convert to integer if string just to make sure it doesn't hiccup
     wkid = int(spatial_reference_wkid) if isinstance(spatial_reference_wkid, str) else spatial_reference_wkid
 
