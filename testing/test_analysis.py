@@ -54,5 +54,5 @@ def test_get_add_new_closest_dataframe(near_df, new_dest):
         closest_table=near_df,
         new_destination=new_dest
     )
-    # 1 is the new id assigned to the added destination, hence a decent test of functioning
+    # 1 is the new id assigned to the added destination; hence, a decent test
     assert('1' not in near_df.destination_id_01.values and '1' in updated_nearest_df.destination_id_01.values)
