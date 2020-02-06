@@ -193,7 +193,7 @@ def get_add_new_closest_dataframe(origins: [str, pd.DataFrame], origin_id_field:
     :return: Data frame with rebalanced closest table only for affected origins.
     """
     # read in the existing closest table solution
-    closest_orig_df = pd.read_csv(closest_table)
+    closest_orig_df = closest_table if isinstance(closest_table, pd.DataFrame) else pd.read_csv(closest_table)
 
     # get a list of the destination columns from the existing closest table
     dest_cols = [col for col in closest_orig_df.columns if col.startswith('destination_id')]
