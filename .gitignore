@@ -97,3 +97,6 @@ target/
 
 # test scratch outputs
 testing/test_data/scratch
+
+# experimentation directory
+scratch/
