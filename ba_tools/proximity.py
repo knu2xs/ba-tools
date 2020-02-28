@@ -174,104 +174,53 @@ def _get_closest_df_arcpy(origin_df, dest_df, dest_count, network_dataset, max_d
     :param max_dist: Maximum nearest routing distance in miles.
     :return: Spatially Enabled Dataframe of solved closest facility routes.
     """
-    # set the workspace so networking has a place to save results, and also clean out results of previous runs
-    temp_dir = tempfile.gettempdir()
-    temp_gdb = os.path.join(temp_dir, 'temp.gdb')
-    if not arcpy.Exists(temp_gdb):
-        arcpy.management.CreateFileGDB(temp_dir, 'temp.gdb')
-    arcpy.env.workspace = temp_gdb
+    # get the mode of travel from the network dataset - rural so gravel roads are fair game
+    nd_lyr = arcpy.nax.MakeNetworkDatasetLayer(network_dataset)[0]
+    trvl_mode_dict = arcpy.nax.GetTravelModes(nd_lyr)
+    trvl_mode = trvl_mode_dict['Rural Driving Time']
 
-    # save the spatially enabled dataframes as feature classes for routing analysis
-    origin_fc = origin_df.reset_index(drop=True).spatial.to_featureclass(os.path.join(temp_gdb, f'origin_fc_{uuid.uuid4().hex}'))
-    dest_fc = dest_df.reset_index(drop=True).spatial.to_featureclass(os.path.join(temp_gdb, f'dest_fc_{uuid.uuid4().hex}'))
+    # create the closest solver object instance
+    # https://pro.arcgis.com/en/pro-app/arcpy/network-analyst/closestfacility.htm
+    closest_solver = arcpy.nax.ClosestFacility(network_dataset)
 
-    # convert to a layer
-    origin_lyr = arcpy.management.MakeFeatureLayer(origin_fc)[0]
+    # set parameters for the closest solver
+    closest_solver.travelMode = trvl_mode
+    closest_solver.travelDirection = arcpy.nax.TravelDirection.ToFacility
+    # TODO: How to set this to distance?
+    closest_solver.timeUnits = arcpy.nax.TimeUnits.Minutes
+    closest_solver.defaultTargetFacilityCount = dest_count
+    closest_solver.routeShapeType = arcpy.nax.RouteShapeType.TrueShapeWithMeasures
+    closest_solver.searchTolerance = 5000
+    closest_solver.searchToleranceUnits = arcpy.nax.DistanceUnits.Meters
 
-    # if the maximum near distance is desired
+    # since maximum distance is optional, well, make it optional
     if max_dist:
+        closest_solver.defaultImpedanceCutoff = max_dist
 
-        # get the maximum near distance
-        max_dist = _get_max_near_dist_arcpy(dest_fc)
+    # load the origin and destination feature data frames into memory and load into the solver object instance
+    origin_fc = origin_df.spatial.to_featureclass('memory/origin')
+    closest_solver.load(arcpy.nax.ClosestFacilityInputDataType.Incidents, origin_fc)
 
-        # create the network analysis layer
-        na_lyr = arcpy.na.MakeClosestFacilityAnalysisLayer(
-                network_data_source=network_dataset,
-                layer_name=None,
-                travel_mode="Driving Distance",
-                travel_direction="TO_FACILITIES",
-                cutoff=max_dist,
-                number_of_facilities_to_find=dest_count,
-                line_shape="ALONG_NETWORK",
-                accumulate_attributes="Miles;TravelTime"
-        )[0]
-
-        # select the contributing geographies only within the search distance to speed up add locations
-        arcpy.management.SelectLayerByLocation(
-            in_layer=origin_lyr,
-            overlap_type='WITHIN_A_DISTANCE',
-            select_features=dest_fc,
-            search_distance='{} miles'.format(max_dist)
-        )
-
-    # if no max near dist
-    else:
-
-        # create the network analysis layer
-        na_lyr = arcpy.na.MakeClosestFacilityAnalysisLayer(
-            network_data_source=network_dataset,
-            layer_name=None,
-            travel_mode="Driving Distance",
-            travel_direction="TO_FACILITIES",
-            number_of_facilities_to_find=dest_count,
-            line_shape="ALONG_NETWORK",
-            accumulate_attributes="Miles;TravelTime"
-        )[0]
-
-        # ensure nothing is selected in the contributing areas
-        arcpy.SelectLayerByAttribute_management(origin_lyr, "CLEAR_SELECTION")
-
-    # get a dictionary of all the layer resource names
-    na_lyr_dict = arcpy.na.GetNAClassNames(na_lyr)
-
-    # add the stores as destinations to the analysis layer
-    arcpy.na.AddLocations(
-            in_network_analysis_layer=na_lyr,
-            sub_layer=na_lyr_dict['Facilities'],
-            in_table=dest_fc,
-            search_tolerance="5000 Meters",
-            match_type="MATCH_TO_CLOSEST",
-            append=False
-    )
-
-    # now, add area centroids to the analysis layer
-    arcpy.na.AddLocations(
-        in_network_analysis_layer=na_lyr,
-        sub_layer=na_lyr_dict['Incidents'],
-        in_table=origin_lyr,
-        search_tolerance="5000 Meters",
-        match_type="MATCH_TO_CLOSEST",
-        append=False
-    )
+    dest_fc = dest_df.spatial.to_featureclass('memory/dest')
+    closest_solver.load(arcpy.nax.ClosestFacilityInputDataType.Facilities, dest_fc)
 
     # run the solve, and get comfortable
-    arcpy.na.Solve(na_lyr)
+    closest_result = closest_solver.solve()
 
-    # convert the routes to a spatially enabled dataframe to send back
-    routes_lyr_name = [lyr for lyr in na_lyr_dict.keys() if 'Routes' in lyr][0]
-    closest_fc = arcpy.Describe(na_lyr_dict[routes_lyr_name]).catalogPath
-    closest_df = GeoAccessor.from_featureclass(closest_fc)
+    # export the results to a spatially enabled data frame
+    closest_result.export(arcpy.nax.ClosestFacilityOutputDataType.Routes, 'memory/routes')
+    closest_df = GeoAccessor.from_featureclass('memory/routes').drop(columns='OBJECTID')
+    arcpy.management.Delete('memory/routes')
 
     # get rid of the extra empty columns the local network solve adds
     closest_df.dropna(axis=1, how='all', inplace=True)
 
     # populate the origin and destination fields so the schema matches what online solve returns
     name_srs = closest_df.Name.str.split(' - ')
-    closest_df.IncidentID = name_srs.apply(lambda val: val[0])
-    closest_df.FacilityID = name_srs.apply(lambda val: val[1])
+    closest_df['IncidentID'] = name_srs.apply(lambda val: val[0])
+    closest_df['FacilityID'] = name_srs.apply(lambda val: val[1])
 
     return closest_df
-
 
 def _get_closest_csv_rest(origin_df, dest_df, dest_count, gis, max_dist=None):
     """
