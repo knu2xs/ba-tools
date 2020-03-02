@@ -31,6 +31,7 @@ nearest_brand_csv = data_dir/'nearest_locations.csv'
 
 scratch_dir = data_dir/'scratch'
 
+closest_parquet = data_dir/'closest_test.parquet'
 
 @pytest.fixture
 def block_group_points_df():
@@ -61,6 +62,18 @@ def test_get_closest_df_arcpy(block_group_points_df, brand_df, closest_df_test):
 
 def test_get_closest_df_arcpy_nex(block_group_points_df, brand_df, closest_df_test):
     closest_df = proximity._get_closest_df_arcpy_nex(block_group_points_df, brand_df, 6, data.usa_network_dataset)
-    closest_df.SHAPE = closest_df.SHAPE.astype('str')
-    closest_df.to_parquet('closest_nex.parquet')
     assert closest_df.equals(closest_df_test)
+
+
+def test_reformat_closest_result_dataframe(closest_df_test):
+    reformat_df = proximity.reformat_closest_result_dataframe(closest_df_test)
+
+    out_cols = ['origin_id', 'destination_rank', 'destination_id', 'proximity_traveltime', 'proximity_kilometers',
+                'proximity_side_street_left', 'proximity_side_street_right', 'SHAPE']
+    assert list(reformat_df.columns) == out_cols
+
+
+def test_explode_closest_rank_dataframe(closest_df_test):
+    reformat_df = proximity.reformat_closest_result_dataframe(closest_df_test)
+    expl_df = proximity.explode_closest_rank_dataframe(reformat_df)
+    assert isinstance(expl_df, pd.DataFrame)

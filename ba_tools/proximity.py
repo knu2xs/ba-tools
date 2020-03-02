@@ -253,16 +253,22 @@ def reformat_closest_result_dataframe(closest_df):
     if len(miles_lst) and len(kilometers_lst):
         proximity_src_cols = [col for col in proximity_src_cols if col != miles_lst[0]]
 
+    # calculate side of street columns
+    closest_df['proximity_side_street_right'] = (closest_df['FacilityCurbApproach'] == 1).astype('int64')
+    closest_df['proximity_side_street_left'] = (closest_df['FacilityCurbApproach'] == 2).astype('int64')
+    side_cols = ['proximity_side_street_left', 'proximity_side_street_right']
+
     # filter the dataframe to just the columns we need
-    src_cols = ['IncidentID', 'FacilityRank', 'FacilityID'] + proximity_src_cols + ['SHAPE']
+    src_cols = ['IncidentID', 'FacilityRank', 'FacilityID'] + proximity_src_cols + side_cols + ['SHAPE']
     closest_df = closest_df[src_cols].copy()
 
     # replace total in proximity columns for naming convention
-    proximity_out_cols = [col.lower().replace('total', 'proximity') for col in proximity_src_cols]
+    closest_df.columns = [col.lower().replace('total', 'proximity') if col.startswith('Total_') else col
+                          for col in closest_df.columns]
 
     # rename the columns for the naming convention
-    out_cols = ['origin_id', 'destination_rank', 'destination_id'] + proximity_out_cols + ['SHAPE']
-    closest_df.columns = out_cols
+    rename_dict = {'IncidentID': 'origin_id', 'FacilityRank': 'destination_rank', 'FacilityID': 'destination_id'}
+    closest_df = closest_df.rename(columns=rename_dict)
 
     return closest_df
 
@@ -286,7 +292,7 @@ def explode_closest_rank_dataframe(closest_df, origin_id_col='origin_id', rank_c
     # iterate the closest destination ranking
     for rank_val in closest_df[rank_col].unique():
 
-        # filter the dataframe to just the records with this destionation ranking
+        # filter the dataframe to just the records with this destination ranking
         rank_df = closest_df[closest_df[rank_col] == rank_val]
 
         # create a temporary dataframe to begin building the columns onto
@@ -309,8 +315,8 @@ def explode_closest_rank_dataframe(closest_df, origin_id_col='origin_id', rank_c
     return origin_dest_df
 
 
-def get_closest_solution(origins, origin_id_fld, destinations, dest_id_fld, gis=None,
-                                                network_dataset=None, destination_count=4):
+def get_closest_solution(origins, origin_id_fld, destinations, dest_id_fld, gis=None, network_dataset=None,
+                         destination_count=4, local_analysis_batch_size=None):
     """
     Create a closest destination dataframe using origin and destination Spatially Enabled Dataframes, but keep
         each origin and destination still in a discrete row instead of collapsing to a single row per origin. The main
@@ -326,6 +332,9 @@ def get_closest_solution(origins, origin_id_fld, destinations, dest_id_fld, gis=
     :param gis: ArcGIS Web GIS object instance with networking configured.
     :param network_dataset: Path to ArcGIS Network dataset.
     :param destination_count: Integer number of destinations to search for from every origin point.
+    :param local_analysis_batch_size: Integer - When performing analysis locally, what the batch size is to chunk the
+        analysis for multithreading. If not set, this will be calculated as the total destinations divided by  one less
+        than the number of cores available.
     :return: Spatially Enabled Dataframe with a row for each origin id, and metrics for each nth destinations.
     """
     # check to environment against inputs to determine if networking locally or remotely
@@ -368,6 +377,9 @@ def get_closest_solution(origins, origin_id_fld, destinations, dest_id_fld, gis=
         else:
             closest_df = _get_closest_df_rest(origin_df, dest_df, destination_count, gis)
 
+        # reformat the results to be a single row for each origin
+        closest_df = reformat_closest_result_dataframe(closest_df)
+
     elif network_dataset is not None:
 
         if 'Network' in env.arcpy_extensions:
@@ -379,8 +391,8 @@ def get_closest_solution(origins, origin_id_fld, destinations, dest_id_fld, gis=
         # run the closest analysis locally
         closest_df = _get_closest_df_arcpy(origin_df, dest_df, destination_count, network_dataset)
 
-    # reformat the results to be a single row for each origin
-    closest_df = reformat_closest_result_dataframe(closest_df)
+        # reformat the results to be a single row for each origin
+        closest_df = reformat_closest_result_dataframe(closest_df)
 
     return closest_df
 
