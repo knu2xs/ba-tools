@@ -254,7 +254,25 @@ class BaData:
         Esri Business Analyst block points layer - useful for calculating weighted centroids.
         :return: Feature Layer
         """
-        return self._create_demographic_layer()
+        # get the path to the geodatabase where the Esri demographics reside
+        gdb_path = os.path.join(self.usa_data_path, 'Data', 'Demographic Data', 'block_data')
+
+        arcpy.env.workspace = gdb_path
+        fc_name = [d for d in arcpy.ListDatasets(gdb_path, ) if re.match(r'USA_ESRI_\d{4}_blocks', d)][0]
+
+        fc_path = os.path.join(gdb_path, fc_name)
+
+        # create layer map
+        visible_fields = ['Shape', 'ID', 'NAME']
+
+        def _eval_visible(field_name):
+            if field_name in visible_fields:
+                return 'VISIBLE'
+            else:
+                return 'HIDDEN'
+
+        field_map_lst = [' '.join([f.name, f.name, _eval_visible(f.name), 'NONE']) for f in arcpy.ListFields(fc_path)]
+        field_map = ';'.join(field_map_lst)
 
     @property
     def layer_blocks(self) -> arcpy._mp.Layer:
