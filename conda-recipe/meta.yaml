@@ -1,6 +1,6 @@
 package:
   name: ba-tools
-  version: "0.7.11"
+  version: "0.7.12"
 
 source:
   path: ..
@@ -14,7 +14,7 @@ requirements:
     - python>=3.6
     - setuptools
   run:
-    - arcgis>=1.7.0
+    - arcgis>=1.8.2
     - numpy
     - pandas
     - requests
