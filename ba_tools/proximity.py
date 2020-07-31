@@ -1,4 +1,6 @@
+from concurrent import futures
 import math
+import multiprocessing
 import os
 import tempfile
 import uuid
@@ -10,6 +12,7 @@ import arcpy
 import pandas as pd
 
 from . import utils
+from ._data import data
 
 # location to store temp files if necessary
 csv_file_prefix = 'temp_closest'
@@ -188,6 +191,7 @@ def _get_closest_df_arcpy(origin_df, dest_df, dest_count, network_dataset, max_d
     closest_solver.travelDirection = arcpy.nax.TravelDirection.ToFacility
     # TODO: How to set this to distance?
     closest_solver.timeUnits = arcpy.nax.TimeUnits.Minutes
+    closest_solver.timeUnits = arcpy.nax.DistanceUnits.Miles
     closest_solver.defaultTargetFacilityCount = dest_count
     closest_solver.routeShapeType = arcpy.nax.RouteShapeType.TrueShapeWithMeasures
     closest_solver.searchTolerance = 5000
@@ -222,6 +226,44 @@ def _get_closest_df_arcpy(origin_df, dest_df, dest_count, network_dataset, max_d
 
     return closest_df
 
+
+def _get_closest_arcpy_multithreaded(origin_df, dest_df, dest_count, network_dataset, max_dist=None):
+    """
+    Multithread and speed up the process of using local networks for analysis.
+    :param origin_df: Origin points Spatially Enabled Dataframe
+    :param dest_df: Destination points Spatially Enabled Dataframe
+    :param dest_count: Destination points Spatially Enabled Dataframe
+    :param network_dataset: Path to ArcGIS Network dataset.
+    :param max_dist: Maximum nearest routing distance in miles.
+    :return: Spatially Enabled Dataframe of solved closest facility routes.
+    """
+    # set the worker count to one less than the number of processors available
+    workers = (multiprocessing.cpu_count() - 1)
+
+    # if there are less origins than available workers, reduce the worker count to the number of origins
+    if len(origin_df.index) < workers:
+        workers = len(origin_df.index)
+
+    # set the batch size based on the number of workers available
+    batch_size = math.floor(len(origin_df.index) / workers)
+
+    # get a list of index tuples for slicing
+    batch_idx_lst = utils.blow_chunks(origin_df.index, batch_size)
+
+    # helper for iteratively invoking closest arcpy
+    def _multiprocess_closest_arcpy(idx):
+        chunk_origin_df = origin_df[idx.start: idx.stop]
+        return _get_closest_df_arcpy(chunk_origin_df, dest_df, dest_count, network_dataset)
+
+    # split apart job across cores
+    with futures.ProcessPoolExecutor(max_workers=workers) as executors:
+        results = executors.map(_multiprocess_closest_arcpy, batch_idx_lst)
+        out_df_lst = []
+        for result in results:
+            out_df_lst.append(result)
+        return out_df_lst
+
+
 def _get_closest_csv_rest(origin_df, dest_df, dest_count, gis, max_dist=None):
     """
     Enables batch processing of get closest by saving iterative results to a temp csv file to avoid memory overruns.
@@ -253,16 +295,22 @@ def reformat_closest_result_dataframe(closest_df):
     if len(miles_lst) and len(kilometers_lst):
         proximity_src_cols = [col for col in proximity_src_cols if col != miles_lst[0]]
 
+    # calculate side of street columns
+    closest_df['proximity_side_street_right'] = (closest_df['FacilityCurbApproach'] == 1).astype('int64')
+    closest_df['proximity_side_street_left'] = (closest_df['FacilityCurbApproach'] == 2).astype('int64')
+    side_cols = ['proximity_side_street_left', 'proximity_side_street_right']
+
     # filter the dataframe to just the columns we need
-    src_cols = ['IncidentID', 'FacilityRank', 'FacilityID'] + proximity_src_cols + ['SHAPE']
+    src_cols = ['IncidentID', 'FacilityRank', 'FacilityID'] + proximity_src_cols + side_cols + ['SHAPE']
     closest_df = closest_df[src_cols].copy()
 
     # replace total in proximity columns for naming convention
-    proximity_out_cols = [col.lower().replace('total', 'proximity') for col in proximity_src_cols]
+    closest_df.columns = [col.lower().replace('total', 'proximity') if col.startswith('Total_') else col
+                          for col in closest_df.columns]
 
     # rename the columns for the naming convention
-    out_cols = ['origin_id', 'destination_rank', 'destination_id'] + proximity_out_cols + ['SHAPE']
-    closest_df.columns = out_cols
+    rename_dict = {'IncidentID': 'origin_id', 'FacilityRank': 'destination_rank', 'FacilityID': 'destination_id'}
+    closest_df = closest_df.rename(columns=rename_dict)
 
     return closest_df
 
@@ -286,7 +334,7 @@ def explode_closest_rank_dataframe(closest_df, origin_id_col='origin_id', rank_c
     # iterate the closest destination ranking
     for rank_val in closest_df[rank_col].unique():
 
-        # filter the dataframe to just the records with this destionation ranking
+        # filter the dataframe to just the records with this destination ranking
         rank_df = closest_df[closest_df[rank_col] == rank_val]
 
         # create a temporary dataframe to begin building the columns onto
@@ -309,8 +357,8 @@ def explode_closest_rank_dataframe(closest_df, origin_id_col='origin_id', rank_c
     return origin_dest_df
 
 
-def get_closest_solution(origins, origin_id_fld, destinations, dest_id_fld, gis=None,
-                                                network_dataset=None, destination_count=4):
+def get_closest_solution(origins, origin_id_fld, destinations, dest_id_fld, network_dataset=None, destination_count=4,
+                         gis=None):
     """
     Create a closest destination dataframe using origin and destination Spatially Enabled Dataframes, but keep
         each origin and destination still in a discrete row instead of collapsing to a single row per origin. The main
@@ -323,9 +371,9 @@ def get_closest_solution(origins, origin_id_fld, destinations, dest_id_fld, gis=
         String Web GIS Item ID
         Destination points in one of the supported input formats.
     :param dest_id_fld: Column in the destination points Spatially Enabled Dataframe uniquely identifying each feature
-    :param gis: ArcGIS Web GIS object instance with networking configured.
     :param network_dataset: Path to ArcGIS Network dataset.
     :param destination_count: Integer number of destinations to search for from every origin point.
+    :param gis: ArcGIS Web GIS object instance with networking configured.
     :return: Spatially Enabled Dataframe with a row for each origin id, and metrics for each nth destinations.
     """
     # check to environment against inputs to determine if networking locally or remotely
@@ -343,15 +391,14 @@ def get_closest_solution(origins, origin_id_fld, destinations, dest_id_fld, gis=
     # create an environment object instance for checking settings later
     env = utils.Environment(gis)
 
+    # yes, the undocumented way to use a REST endpoint happens here...
     if gis is not None:
-
-        # raise NotImplementedError('Using remote network routing is not yet implemented.')
 
         # get the limitations on the networking rest endpoint, and scale the analysis based on this
         max_records = gis._con.get(gis.properties.helperServices.asyncClosestFacility.url.rpartition('/')[0])['maximumRecords']
         max_origin_cnt = math.floor(max_records / destination_count)
 
-        # if necessary, batch the analysis based on the size of the input data, and the number of destinations per origin
+        # if necessary, batch the analysis based on size of the input data, and the number of destinations per origin
         if len(origin_df.index) > max_origin_cnt:
 
             # process each batch, and save the results to a temp file in the temp directory
@@ -368,19 +415,32 @@ def get_closest_solution(origins, origin_id_fld, destinations, dest_id_fld, gis=
         else:
             closest_df = _get_closest_df_rest(origin_df, dest_df, destination_count, gis)
 
-    elif network_dataset is not None:
+        # reformat the results to be a single row for each origin
+        closest_df = reformat_closest_result_dataframe(closest_df)
 
+    else:
+
+        # check to make sure network analyst is available
         if 'Network' in env.arcpy_extensions:
             env.arcpy_checkout_extension('Network')
         else:
             raise Exception('To perform network routing locally you must have access to the ArcGIS Network Analyst '
                             'extension. It appears this extension is either not installed or not licensed.')
 
+        # try to get a network to work with if one is not provided
+        if network_dataset is None:
+
+            # if the local usa data is installed, use it, but if not, we don't have anything to work with
+            if data.usa_network_dataset:
+                network_dataset = data.usa_network_dataset
+            else:
+                raise Exception('You must either have a ')
+
         # run the closest analysis locally
         closest_df = _get_closest_df_arcpy(origin_df, dest_df, destination_count, network_dataset)
 
-    # reformat the results to be a single row for each origin
-    closest_df = reformat_closest_result_dataframe(closest_df)
+        # reformat the results to be a single row for each origin
+        closest_df = reformat_closest_result_dataframe(closest_df)
 
     return closest_df
 
