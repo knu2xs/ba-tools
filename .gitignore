@@ -102,6 +102,6 @@ testing/test_data/scratch
 scratch/
 
 # conda build directory
-conda-recipe/conda-build/*/
+conda-recipe/conda-build/*
 conda-recipe/conda-build/*.json
 conda-recipe/conda-build/*.html

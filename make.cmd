@@ -32,7 +32,7 @@ GOTO %1
         CALL python setup.py sdist
 
         :: Build conda package
-        CALL conda build ./conda-recipe
+        CALL conda build ./conda-recipe --output-folder ./conda-recipe/conda-build
 
     )
     EXIT /B
@@ -45,8 +45,8 @@ GOTO %1
         CALL twine upload ./dist
 
         :: Build conda package
-        CALL conda build ./conda-recipe
-        CALL anaconda upload ./conda-recipe/conda-build\win-64\ba-tools*.tar.bz2
+        CALL conda build ./conda-recipe ----output-folder ./conda-recipe/conda-build
+        CALL anaconda upload ./conda-recipe/conda-build/win-64/ba-tools*.tar.bz2
 
     )
     EXIT /B
