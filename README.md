@@ -1,28 +1,38 @@
 # BA-Tools
 
-BA-Tools, shorthand for ArcGIS Business Analyst Tools is a collection of resources combined into a succinct Python package streamlining the process of performing analysis using quantitative geographic and machine learning methods.
+BA-Tools, shorthand for ArcGIS Business Analyst Tools is a collection of resources combined into a succinct Python package streamlining the process of performing analysis combining quantitative geographic and machine learning methods.
 
 ## Quickstart
 
-For the impatient, you can install this in your local environment using conda. However, it is highly recommended to use this in conjunction with [GeoAI-Retail](https://github.com/knu2xs/geoai-retail) to dramatically streamline your entire analysis workflow.
+For the impatient, you can install this in your local environment using conda. It is a publicly available as an [installable Conda package](https://anaconda.org/knu2xs/ba-tools). However, it is highly recommended to use this in conjunction with [GeoAI-Retail](https://github.com/knu2xs/geoai-retail) to dramatically streamline the entire analysis workflow.
 
-```conda install -c knu2xs ba-tools```
+``` bash
+> conda install -c knu2xs ba-tools
+```
 
-## Background
+## Overview and Features
 
 BA-Tool dramatically streamlines the process of data munging to be able to build a model using Machine Learning. This is a supporting package for [GeoAI-Retail](https://github.com/knu2xs/geoai-retail). 
 
-BA-Tools facilitates quantitatively considering the complex interaction of geographic factors using machine learning to perform analyses for deriving insights into human behavior - most notably, human behavior as it relates to retail. Especially when used in conjunction with GeoAI-Retail, BA-Tools dramatically streamlines the process of performing the requisite feature engineering using sound Geographic methods for retail forecasting empirically taking into account the effects of Geographic relationships. 
+BA-Tools facilitates quantitatively considering the complex interaction of geographic factors using machine learning to perform analyses for deriving human behavior insights - most notably, human behavior as it relates to retail. Especially when used in conjunction with [GeoAI-Retail](https://github.com/knu2xs/geoai-retail), BA-Tools dramatically streamlines the process of performing the requisite feature engineering using sound Geographic methods for retail forecasting. 
 
-It is important to note, this package offers no opinion or guidance on creation of the model. Rather, it facilitates the process of data creation, tapping into the vast data and Geographic analysis capabilities of ArcGIS to automate much of  the feature engineering required prior to model training. Further, with this model created, this module enables inferencing using the created model to evaluate the effects of adding or removing a location from the store network.
+It is important to note, this package offers no opinion or guidance on creation of the model. Rather, it facilitates the process of [feature engineering](https://medium.com/mindorks/what-is-feature-engineering-for-machine-learning-d8ba3158d97a), tapping into the vast data and Geographic analysis capabilities of ArcGIS to automate much of the feature engineering required to quantitatively create Geographic factors to include in model training. With this model created, BA-Tools module also enables inferencing using the created model to evaluate the effects of adding or removing a location from the retail landscape.
 
-## Current State
+## Requirements
 
-Currently, only analysis using __ArcGIS Pro__ with the __Business Analyst__ extension using __locally installed United States data__ is supported. If you dig into the package, you will find some functions supporting using REST services, but I have yet to get this workflow working reliably. Consequently, for now, it is dependent on ArcPy and locally installed ArcGIS Business Analyst data for the United States. Depending on what use cases we run across, and have to support, international data and even full REST based analysis (not requiring ArcPy) may be supported in the future. Currently though, it is not.
+Currently, only analysis using [__ArcGIS Pro__](https://www.esri.com/en-us/arcgis/products/arcgis-pro/overview) with the [__Business Analyst__](https://www.esri.com/en-us/arcgis/products/arcgis-business-analyst/applications/desktop) extension using __locally installed United States data__ is supported. Consequently, for now, it is dependent on ArcPy and locally installed ArcGIS Business Analyst data for the United States. Depending on what use cases we run across, and have to support, international data and even full REST based analysis (not requiring ArcPy) may be supported in the future. Currently though, it is not.
+
+## Issues
+
+Find a bug or want to request a new feature?  Please let us know by submitting an issue.
+
+## Contributing
+
+Esri welcomes contributions from anyone and everyone. Please see our [guidelines for contributing](https://github.com/esri/contributing).
 
 # License - [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0)
 
-Copyright 2019 Esri
+Copyright 2020 Esri
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 

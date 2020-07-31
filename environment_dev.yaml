@@ -1,0 +1,10 @@
+name: ba-tools-dev
+
+channels:
+  - conda-forge
+
+dependencies:
+  - anaconda-client
+  - pip
+  - pip:
+    - twine
