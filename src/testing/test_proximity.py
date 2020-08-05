@@ -63,10 +63,10 @@ def test_get_closest_df_arcpy(block_group_points_df, brand_df, closest_df_test):
     assert (list(closest_df.columns) == cols)
 
 
-def test_get_closest_df_arcpy_multithreaded(block_group_points_df, brand_df, closest_df_test):
-    closest_df = proximity._get_closest_arcpy_multithreaded(block_group_points_df, brand_df, 6,
-                                                            data.usa_network_dataset)
-    assert closest_df.equals(closest_df_test)
+# def test_get_closest_df_arcpy_multithreaded(block_group_points_df, brand_df, closest_df_test):
+#     closest_df = proximity._get_closest_arcpy_multithreaded(block_group_points_df, brand_df, 6,
+#                                                             data.usa_network_dataset)
+#     assert closest_df.equals(closest_df_test)
 
 
 def test_reformat_closest_result_dataframe(closest_df_test):
