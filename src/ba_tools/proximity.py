@@ -212,13 +212,13 @@ def _get_closest_df_arcpy(origin_df, dest_df, dest_count, network_dataset, max_d
     closest_result = closest_solver.solve()
 
     # export the results to a spatially enabled data frame
-    route_fc = os.path.join(arcpy.env.scratchGDB, 'routes')
+    route_fc = 'in_memory/routes'
     closest_result.export(arcpy.nax.ClosestFacilityOutputDataType.Routes, route_fc)
     route_oid_col = arcpy.Describe(route_fc).OIDFieldName
     closest_df = GeoAccessor.from_featureclass(route_fc)
     if route_oid_col:
         closest_df.drop(columns=[route_oid_col], inplace=True)
-    arcpy.management.Delete(os.path.join(arcpy.env.scratchGDB, 'routes'))
+    arcpy.management.Delete(route_fc)
 
     # get rid of the extra empty columns the local network solve adds
     closest_df.dropna(axis=1, how='all', inplace=True)
