@@ -5,7 +5,7 @@ with open('README.md', 'r') as readme:
 
 setuptools.setup(
     name='ba-tools',
-    version='0.7.12',
+    version='0.7.14',
     author='Joel McCune',
     author_email='jmccune@esri.com',
     description='Feature engineering using ArcGIS Pro with Business Analyst for using quantitative Geography '
@@ -14,7 +14,8 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/knu2xs/ba-tools',
-    packages=['ba_tools'],
+    package_dir={"": "src"},
+    packages=setuptools.find_packages('src'),
     install_requires=[
         'arcgis>=1.8.2',
         'numpy',
@@ -26,7 +27,6 @@ setuptools.setup(
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'Programming Language :: Python :: 3 :: Only',
-        'Programming Language :: Python :: 3.6',
         'License :: OSI Approved :: MIT License',
         'Operating System :: Microsoft :: Windows',
         'Topic :: Scientific/Engineering :: GIS'
