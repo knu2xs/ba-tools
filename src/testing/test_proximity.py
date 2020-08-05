@@ -4,13 +4,13 @@ import sys
 
 from arcgis import GeoAccessor
 from arcgis.geometry import Geometry
-import numpy as np
+import arcpy
 import pandas as pd
 import pytest
 
 # facilitate local resource imports
 project_dir_str = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
-src_dir_str = project_dir_str / 'src'
+src_dir_str = project_dir_str
 sys.path.insert(0, str(src_dir_str))
 from ba_tools import data, proximity, utils
 
@@ -62,7 +62,6 @@ def test_get_closest_df_arcpy(block_group_points_df, brand_df, closest_df_test):
             'Total_Kilometers', 'Total_Minutes', 'FacilityOID', 'IncidentOID', 'SHAPE', 'FacilityID']
     assert (list(closest_df.columns) == cols)
 
-
 # def test_get_closest_df_arcpy_multithreaded(block_group_points_df, brand_df, closest_df_test):
 #     closest_df = proximity._get_closest_arcpy_multithreaded(block_group_points_df, brand_df, 6,
 #                                                             data.usa_network_dataset)
@@ -86,6 +85,16 @@ def test_explode_closest_rank_dataframe(closest_df_test):
 def test_get_closest_solution():
     closest_df = proximity.get_closest_solution(origins=block_groups, origin_id_fld=block_group_id_field,
                                                 destinations=brand_locs, dest_id_fld=brand_id_field)
+    cols = ['origin_id', 'destination_rank', 'destination_id', 'proximity_kilometers', 'proximity_minutes',
+            'proximity_side_street_left', 'proximity_side_street_right', 'SHAPE']
+    assert list(closest_df.columns) == cols
+
+
+def test_get_closest_solution_from_layers():
+    bg_lyr = arcpy.management.MakeFeatureLayer(str(block_groups))[0]
+    brand_lyr = arcpy.management.MakeFeatureLayer(str(brand_locs))[0]
+    closest_df = proximity.get_closest_solution(origins=bg_lyr, origin_id_fld=block_group_id_field,
+                                                destinations=brand_lyr, dest_id_fld=brand_id_field)
     cols = ['origin_id', 'destination_rank', 'destination_id', 'proximity_kilometers', 'proximity_minutes',
             'proximity_side_street_left', 'proximity_side_street_right', 'SHAPE']
     assert list(closest_df.columns) == cols
