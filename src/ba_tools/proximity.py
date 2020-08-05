@@ -191,7 +191,7 @@ def _get_closest_df_arcpy(origin_df, dest_df, dest_count, network_dataset, max_d
     closest_solver.travelDirection = arcpy.nax.TravelDirection.ToFacility
     # TODO: How to set this to distance?
     closest_solver.timeUnits = arcpy.nax.TimeUnits.Minutes
-    closest_solver.timeUnits = arcpy.nax.DistanceUnits.Miles
+    closest_solver.distanceUnits = arcpy.nax.DistanceUnits.Miles
     closest_solver.defaultTargetFacilityCount = dest_count
     closest_solver.routeShapeType = arcpy.nax.RouteShapeType.TrueShapeWithMeasures
     closest_solver.searchTolerance = 5000
@@ -202,19 +202,23 @@ def _get_closest_df_arcpy(origin_df, dest_df, dest_count, network_dataset, max_d
         closest_solver.defaultImpedanceCutoff = max_dist
 
     # load the origin and destination feature data frames into memory and load into the solver object instance
-    origin_fc = origin_df.spatial.to_featureclass('memory/origin')
+    origin_fc = origin_df.spatial.to_featureclass(os.path.join(arcpy.env.scratchGDB, 'origin'))
     closest_solver.load(arcpy.nax.ClosestFacilityInputDataType.Incidents, origin_fc)
 
-    dest_fc = dest_df.spatial.to_featureclass('memory/dest')
+    dest_fc = dest_df.spatial.to_featureclass(os.path.join(arcpy.env.scratchGDB, 'dest'))
     closest_solver.load(arcpy.nax.ClosestFacilityInputDataType.Facilities, dest_fc)
 
     # run the solve, and get comfortable
     closest_result = closest_solver.solve()
 
     # export the results to a spatially enabled data frame
-    closest_result.export(arcpy.nax.ClosestFacilityOutputDataType.Routes, 'memory/routes')
-    closest_df = GeoAccessor.from_featureclass('memory/routes').drop(columns='OBJECTID')
-    arcpy.management.Delete('memory/routes')
+    route_fc = os.path.join(arcpy.env.scratchGDB, 'routes')
+    closest_result.export(arcpy.nax.ClosestFacilityOutputDataType.Routes, route_fc)
+    route_oid_col = arcpy.Describe(route_fc).OIDFieldName
+    closest_df = GeoAccessor.from_featureclass(route_fc)
+    if route_oid_col:
+        closest_df.drop(columns=[route_oid_col], inplace=True)
+    arcpy.management.Delete(os.path.join(arcpy.env.scratchGDB, 'routes'))
 
     # get rid of the extra empty columns the local network solve adds
     closest_df.dropna(axis=1, how='all', inplace=True)

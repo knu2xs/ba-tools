@@ -4,7 +4,7 @@ channels:
   - conda-forge
 
 dependencies:
-  - anaconda-client
+  - anaconda
   - pip
   - pip:
     - twine
