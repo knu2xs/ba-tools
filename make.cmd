@@ -41,11 +41,11 @@ GOTO %1
     ENDLOCAL & (
 
         :: Build the pip package
-        CALL python setup.py sdist
-        CALL twine upload ./dist
+        CALL python setup.py sdist bdist_wheel
+        CALL twine upload ./dist/*
 
         :: Build conda package
-        CALL conda build ./conda-recipe ----output-folder ./conda-recipe/conda-build
+        CALL conda build ./conda-recipe --output-folder ./conda-recipe/conda-build
         CALL anaconda upload ./conda-recipe/conda-build/win-64/ba-tools*.tar.bz2
 
     )
