@@ -15,11 +15,11 @@ SET ENV_NAME=ba-tools
 GOTO %1
 
 :: Update the current environment with resources needed to publish the package
-:env_update
+:env_dev
     ENDLOCAL & (
 
         :: Install additional packages
-        CALL conda env update -f environment.yml
+        CALL conda env update -f environment_dev.yml
 
     )
     EXIT /B
