@@ -31,8 +31,8 @@ def clean_columns(column_list):
 def get_dataframe(in_features, gis=None):
     """
     Get a spatially enabled dataframe from the input features provided.
-    :param in_features: Spatially Enabled Dataframe | String path to Feature Class | String url to Feature Service
-        | String Web GIS Item ID
+    :param in_features: Spatially Enabled Dataframe | String path to Feature Class | pathlib.Path object to feature
+        class | ArcGIS Layer object |String url to Feature Service | String Web GIS Item ID
         Resource to be evaluated and converted to a Spatially Enabled Dataframe.
     :param gis: Optional GIS object instance for connecting to resources.
     """
@@ -84,8 +84,13 @@ def get_dataframe(in_features, gis=None):
         df = itm.layers[0].query(out_sr=4326, as_df=True)
 
     # create a Spatially Enabled Dataframe from a local feature class
-    elif isinstance(in_features, str):
+    elif isinstance(in_features, (str, pathlib.Path)):
         df = GeoAccessor.from_featureclass(in_features)
+
+    # create a Spatially Enabled Dataframe from a Layer
+    elif isinstance(in_features, arcpy._mp.Layer):
+        pth = arcpy.Describe(in_features).catalogPath
+        df = GeoAccessor.from_featureclass(pth)
 
     # sometimes there is an issue with modified or sliced dataframes with the SHAPE column not being correctly
     #    recognized as a geometry column, so try to set it as the geometry...just in case
