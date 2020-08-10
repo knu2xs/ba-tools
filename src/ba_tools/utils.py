@@ -6,7 +6,7 @@ import pathlib
 import re
 import warnings
 
-from arcgis.features import GeoAccessor, FeatureLayer
+from arcgis.features import GeoAccessor, FeatureLayer, FeatureSet
 from arcgis.geometry import Geometry
 from arcgis.gis import GIS
 from arcgis.env import active_gis
@@ -38,6 +38,13 @@ def get_dataframe(in_features, gis=None):
     """
     # if a path object, convert to a string for following steps to work correctly
     in_features = str(in_features) if isinstance(in_features, pathlib.Path) else in_features
+
+    # helper for determining if feature layer
+    def _is_feature_layer(in_ftrs):
+        if hasattr(in_ftrs, 'isFeatureLayer'):
+            return in_ftrs.isFeatureLayer
+        else:
+            return False
 
     # if already a Spatially Enabled Dataframe, mostly just pass it straight through
     if isinstance(in_features, pd.DataFrame) and in_features.spatial.validate() is True:
@@ -83,14 +90,12 @@ def get_dataframe(in_features, gis=None):
         itm = gis.content.get(in_features)
         df = itm.layers[0].query(out_sr=4326, as_df=True)
 
-    # create a Spatially Enabled Dataframe from a local feature class
     elif isinstance(in_features, (str, pathlib.Path)):
         df = GeoAccessor.from_featureclass(in_features)
 
     # create a Spatially Enabled Dataframe from a Layer
-    elif isinstance(in_features, arcpy._mp.Layer):
-        pth = arcpy.Describe(in_features).catalogPath
-        df = GeoAccessor.from_featureclass(pth)
+    elif _is_feature_layer(in_features):
+        df = FeatureSet.from_json(arcpy.FeatureSet(in_features).JSON).sdf
 
     # sometimes there is an issue with modified or sliced dataframes with the SHAPE column not being correctly
     #    recognized as a geometry column, so try to set it as the geometry...just in case

@@ -286,7 +286,7 @@ def _get_closest_csv_rest(origin_df, dest_df, dest_count, gis, max_dist=None):
 
 def reformat_closest_result_dataframe(closest_df):
     """
-    Reformat the schema, dropping unneeded coluns and renaming those kept to be more in line with this workflow.
+    Reformat the schema, dropping unneeded columns and renaming those kept to be more in line with this workflow.
     :param closest_df: Dataframe of the raw output routes from the find closest analysis.
     :return: Spatially Enabled Dataframe reformatted.
     """
