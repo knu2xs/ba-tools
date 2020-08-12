@@ -5,6 +5,7 @@ channels:
 
 dependencies:
   - anaconda
+  - bump2version
   - pip
   - pip:
     - twine
