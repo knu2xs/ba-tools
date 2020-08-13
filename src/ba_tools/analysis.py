@@ -5,9 +5,12 @@ Methods to analyze hypotehtical scenarios.
 import arcgis
 import arcpy
 from arcgis.geometry import Point
+from arcgis.features import GeoAccessor
 import logging
+import os
 import pandas as pd
 import pathlib
+from pathlib import Path
 from tempfile import gettempdir
 
 from ._data import data
@@ -320,3 +323,83 @@ def get_remove_existing_closest_dataframe(origins: [str, pd.DataFrame], origin_i
                                                                               destination_count=dest_count)
 
     return closest_subset_df
+
+
+def create_origin_destination_customer_dataframe(customer_points:[str, Path], customer_destination_id_field:str,
+                                                 customer_x_field:str=None, customer_y_field:str=None,
+                                                 customer_spatial_reference:arcpy.SpatialReference=4326,
+                                                 customer_keep_field_prefix:str=None,
+                                                 customer_keep_field_suffix:str=None, customer_keep_fields:list=None,
+                                                 origin_area_features:[str, Path]=data.layer_block_group,
+                                                 origin_id_field:str='ID')->pd.DataFrame:
+    """
+    From customer point records, assign an origin geography and standardize the id field schema.
+    :param customer_points: Customer home location points typically from human movement or customer loyalty data.
+    :param customer_destination_id_field: The destination id each customer origin location is associated with.
+    :param customer_x_field: If not a feature class, the field containing the longitude coordinates.
+    :param customer_y_field: If not a feature class, the field containing the latitude coordinates.
+    :param customer_spatial_reference: If providing coordinates, the spatial reference for the coordinates. Defaults to
+        WGS84 (wkid 4326).
+    :param customer_keep_field_prefix: Prefix for series of fields desired to be carried over to the output.
+    :param customer_keep_field_suffix: Suffix for series of fields desired to be carried over to the output.
+    :param customer_keep_fields: Explicit list of fields desired to be carried over to the output.
+    :param origin_area_features: Feature class of geographic areas being used as origins for analysis.
+    :param origin_id_field: Field uniquely identifying each origin area.
+    :return: Dataframe with origin_id and destination_id along with any explicitly specified fields to carry over.
+    """
+    # ensure the input customer points is a Path
+    in_pts = customer_points if isinstance(customer_points, Path) else Path(customer_points)
+
+    # ensure if coordinates provided, both coordinates are provided
+    if (customer_x_field and not customer_y_field) or (not customer_x_field and customer_y_field):
+        raise Exception('Must provide both longitude and latitude fields, not just one.')
+
+    # if a parquet file, although a wonderful format, Esri geoprocessing cannot handle
+    if in_pts.suffix == 'parquet':
+        pts_df = pd.read_parquet(in_pts)
+        in_pts = pts_df.to_csv(os.path.join(gettempdir(), 'pts_temp.csv'))
+
+    # if coordinate fields provided, create a feature class from them
+    if customer_x_field and customer_y_field:
+        in_pts = arcpy.management.XYTableToPoint(
+            in_table=str(in_pts),
+            out_feature_class=os.path.join(arcpy.env.scratchGDB, 'pts_temp'),
+            x_field=customer_x_field,
+            y_field=customer_y_field,
+            coordinate_system=customer_spatial_reference
+        )
+
+    # if a feature class, don't do much of anything
+    elif arcpy.Describe(customer_points).isFeatureClass:
+        in_pts = str(in_pts)
+
+    # if unsure what to do - freak out and panic
+    else:
+        raise Exception('It does not appear the input points are a CSV, parquet for Feature Class.')
+
+    # get a the containing area geographies
+    join_fc = arcpy.gapro.OverlayLayers(
+        input_layer=in_pts,
+        overlay_layer=str(origin_area_features),
+        out_feature_class=os.path.join(arcpy.env.scratchGDB, 'join_pts'),
+        overlay_type='INTERSECT'
+    )
+
+    # convert the joined feature class to a dataframe for schema cleanup
+    join_df = GeoAccessor.from_featureclass(join_fc)
+
+    # id field mapping
+    rename_cols = {origin_id_field: 'origin_id', customer_destination_id_field: 'destination_id'}
+    join_df.rename(columns=rename_cols, inplace=True)
+
+    # build up complete list of keep fields
+    keep_cols = ['origin_id', 'destination_id']
+    if customer_keep_field_prefix:
+        keep_cols = keep_cols + [c for c in join_df.columns if c.startswith(customer_keep_field_prefix)]
+    if customer_keep_field_suffix:
+        keep_cols = keep_cols + [c for c in join_df.columns if c.endswith(customer_keep_field_suffix)]
+    if customer_keep_fields:
+        keep_cols = keep_cols + customer_keep_fields
+
+    # filter the dataframe based to just the fields to be kept
+    return join_df[[keep_cols]].copy()
