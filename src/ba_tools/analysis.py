@@ -359,6 +359,10 @@ def create_origin_destination_customer_dataframe(customer_points:[str, Path], cu
         pts_df = pd.read_parquet(in_pts)
         in_pts = pts_df.to_csv(os.path.join(gettempdir(), 'pts_temp.csv'))
 
+    # ensure if table, providing coordinate fields
+    if in_pts.suffix == 'csv' and not (customer_x_field and customer_y_field):
+        raise Exception('If providing a flat table, must provide x and y coordinate fields.')
+
     # if coordinate fields provided, create a feature class from them
     if customer_x_field and customer_y_field:
         in_pts = arcpy.management.XYTableToPoint(
@@ -374,7 +378,7 @@ def create_origin_destination_customer_dataframe(customer_points:[str, Path], cu
         in_pts = arcpy.management.CopyFeatures(customer_points, os.path.join(arcpy.env.scratchGDB, 'pts_temp'))[0]
 
     # if a feature class, don't do much of anything
-    elif arcpy.Describe(str(in_pts)).isFeatureClass:
+    elif arcpy.Describe(str(in_pts)).datasetType == 'FeatureClass':
         in_pts = str(in_pts)
 
     # if unsure what to do - freak out and panic
