@@ -367,10 +367,14 @@ def create_origin_destination_customer_dataframe(customer_points:[str, Path], cu
             x_field=customer_x_field,
             y_field=customer_y_field,
             coordinate_system=customer_spatial_reference
-        )
+        )[0]
+
+    # if a layer, save locally to preserve any hidden fields and also for downstream processing
+    elif isinstance(customer_points, arcpy._mp.Layer):
+        in_pts = arcpy.management.CopyFeatures(customer_points, os.path.join(arcpy.env.scratchGDB, 'pts_temp'))[0]
 
     # if a feature class, don't do much of anything
-    elif arcpy.Describe(customer_points).isFeatureClass:
+    elif arcpy.Describe(str(in_pts)).isFeatureClass:
         in_pts = str(in_pts)
 
     # if unsure what to do - freak out and panic
@@ -383,7 +387,7 @@ def create_origin_destination_customer_dataframe(customer_points:[str, Path], cu
         overlay_layer=str(origin_area_features),
         out_feature_class=os.path.join(arcpy.env.scratchGDB, 'join_pts'),
         overlay_type='INTERSECT'
-    )
+    )[0]
 
     # convert the joined feature class to a dataframe for schema cleanup
     join_df = GeoAccessor.from_featureclass(join_fc)
