@@ -325,12 +325,13 @@ def get_remove_existing_closest_dataframe(origins: [str, pd.DataFrame], origin_i
     return closest_subset_df
 
 
-def create_origin_destination_customer_dataframe(customer_points:[str, Path], customer_destination_id_field:str,
-                                                 customer_x_field:str=None, customer_y_field:str=None,
+def create_origin_destination_customer_dataframe(customer_points:[str, Path, arcpy._mp.Layer],
+                                                 customer_destination_id_field:str, customer_x_field:str=None,
+                                                 customer_y_field:str=None,
                                                  customer_spatial_reference:arcpy.SpatialReference=4326,
                                                  customer_keep_field_prefix:str=None,
                                                  customer_keep_field_suffix:str=None, customer_keep_fields:list=None,
-                                                 origin_area_features:[str, Path]=data.layer_block_group,
+                                                 origin_area_features:[str, Path, arcpy._mp.Layer]=data.layer_block_group,
                                                  origin_id_field:str='ID')->pd.DataFrame:
     """
     From customer point records, assign an origin geography and standardize the id field schema.
@@ -348,19 +349,20 @@ def create_origin_destination_customer_dataframe(customer_points:[str, Path], cu
     :return: Dataframe with origin_id and destination_id along with any explicitly specified fields to carry over.
     """
     # ensure the input customer points is a Path
-    in_pts = customer_points if isinstance(customer_points, Path) else Path(customer_points)
+    in_pts = customer_points if (isinstance(customer_points, Path) and not arcpy._mp.Layer) else Path(customer_points)
 
     # ensure if coordinates provided, both coordinates are provided
     if (customer_x_field and not customer_y_field) or (not customer_x_field and customer_y_field):
         raise Exception('Must provide both longitude and latitude fields, not just one.')
 
     # if a parquet file, although a wonderful format, Esri geoprocessing cannot handle
-    if in_pts.suffix == 'parquet':
+    if in_pts.suffix == '.parquet':
         pts_df = pd.read_parquet(in_pts)
-        in_pts = pts_df.to_csv(os.path.join(gettempdir(), 'pts_temp.csv'))
+        in_pts = Path(gettempdir())/'pts_temp.csv'
+        pts_df.to_csv(in_pts)
 
     # ensure if table, providing coordinate fields
-    if in_pts.suffix == 'csv' and not (customer_x_field and customer_y_field):
+    if in_pts.suffix == '.csv' and not (customer_x_field and customer_y_field):
         raise Exception('If providing a flat table, must provide x and y coordinate fields.')
 
     # if coordinate fields provided, create a feature class from them
@@ -393,21 +395,23 @@ def create_origin_destination_customer_dataframe(customer_points:[str, Path], cu
         overlay_type='INTERSECT'
     )[0]
 
+    # build up complete list of keep fields
+    keep_cols = [origin_id_field, customer_destination_id_field]
+    join_cols = [f.name for f in arcpy.ListFields(join_fc)]
+    if customer_keep_field_prefix:
+        keep_cols = keep_cols + [c for c in join_cols if c.startswith(customer_keep_field_prefix)]
+    if customer_keep_field_suffix:
+        keep_cols = keep_cols + [c for c in join_cols if c.endswith(customer_keep_field_suffix)]
+    if customer_keep_fields:
+        keep_cols = keep_cols + customer_keep_fields
+
     # convert the joined feature class to a dataframe for schema cleanup
-    join_df = GeoAccessor.from_featureclass(join_fc)
+    val_lst = [r for r in arcpy.da.SearchCursor(str(join_fc), keep_cols)]
+    join_df = pd.DataFrame(val_lst, columns=keep_cols)
 
     # id field mapping
     rename_cols = {origin_id_field: 'origin_id', customer_destination_id_field: 'destination_id'}
     join_df.rename(columns=rename_cols, inplace=True)
 
-    # build up complete list of keep fields
-    keep_cols = ['origin_id', 'destination_id']
-    if customer_keep_field_prefix:
-        keep_cols = keep_cols + [c for c in join_df.columns if c.startswith(customer_keep_field_prefix)]
-    if customer_keep_field_suffix:
-        keep_cols = keep_cols + [c for c in join_df.columns if c.endswith(customer_keep_field_suffix)]
-    if customer_keep_fields:
-        keep_cols = keep_cols + customer_keep_fields
-
     # filter the dataframe based to just the fields to be kept
-    return join_df[[keep_cols]].copy()
+    return join_df

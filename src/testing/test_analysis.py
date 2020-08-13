@@ -9,13 +9,13 @@ import pandas as pd
 import pytest
 
 # facilitate local resource imports
-project_dir_str = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
-src_dir_str = project_dir_str/'src'
-sys.path.insert(0, str(src_dir_str))
+dir_src = Path(__file__).parent.parent
+dir_project = dir_src.parent
+sys.path.insert(0, str(dir_src))
 from ba_tools import analysis
 
-data_dir = Path(__file__).parent/'test_data'
-gdb = data_dir/'test_data.gdb'
+data_dir = dir_project/'data'/'test'
+gdb = data_dir/'test.gdb'
 
 block_groups = gdb/'block_groups'
 block_group_id_field = 'ID'
@@ -56,3 +56,43 @@ def test_get_add_new_closest_dataframe(near_df, new_dest):
     )
     # 1 is the new id assigned to the added destination; hence, a decent test
     assert('1' not in near_df.destination_id_01.values and '1' in updated_nearest_df.destination_id_01.values)
+
+
+def test_create_origin_destination_customer_dataframe_parquet():
+
+    dir_raw = data_dir.parent/'raw'
+    trips_file = dir_raw/'trips.parquet'
+    trips_x = 'coord_x'
+    trips_y = 'coord_y'
+    trips_dest_id = 'store_id'
+    keep_prefix = 'trips_'
+
+    od_df = analysis.create_origin_destination_customer_dataframe(
+        customer_points=trips_file,
+        customer_destination_id_field=trips_dest_id,
+        customer_x_field=trips_x,
+        customer_y_field=trips_y,
+        customer_keep_field_prefix=keep_prefix
+    )
+
+    assert isinstance(od_df, pd.DataFrame)
+
+
+def test_create_origin_destination_customer_dataframe_csv():
+
+    dir_raw = data_dir.parent/'raw'
+    trips_file = dir_raw/'trips.csv'
+    trips_x = 'coord_x'
+    trips_y = 'coord_y'
+    trips_dest_id = 'store_id'
+    keep_prefix = 'trips_'
+
+    od_df = analysis.create_origin_destination_customer_dataframe(
+        customer_points=trips_file,
+        customer_destination_id_field=trips_dest_id,
+        customer_x_field=trips_x,
+        customer_y_field=trips_y,
+        customer_keep_field_prefix=keep_prefix
+    )
+
+    assert isinstance(od_df, pd.DataFrame)
