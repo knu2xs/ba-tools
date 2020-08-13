@@ -404,6 +404,9 @@ def create_origin_destination_customer_dataframe(customer_points:[str, Path, arc
         keep_cols = keep_cols + [c for c in join_cols if c.endswith(customer_keep_field_suffix)]
     if customer_keep_fields:
         keep_cols = keep_cols + customer_keep_fields
+    
+    # make sure there are not duplicates
+    keep_cols = list(set(keep_cols))
 
     # convert the joined feature class to a dataframe for schema cleanup
     val_lst = [r for r in arcpy.da.SearchCursor(str(join_fc), keep_cols)]

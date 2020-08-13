@@ -96,20 +96,20 @@ target/
 **/*.lock
 
 # test scratch outputs
-testing/test_data/scratch
+/testing/test_data/scratch
 
 # experimentation directory
-scratch
+/scratch/
+
+/data/interim/
+/data/raw/
+
+/arcgis/.backups/
+/arcgis/ImportLog/
+/arcgis/Index/
+/arcgis/scratch/
 
 # conda build directory
-conda-build/*
-conda-build/*.json
-conda-build/*.html
-
-data/interim
-data/raw
-
-arcgis/.backups
-arcgis/ImportLog
-arcgis/Index
-arcgis/scratch
+/conda-build/*
+/conda-build/*.json
+/conda-build/*.html
