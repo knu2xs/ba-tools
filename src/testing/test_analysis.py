@@ -1,10 +1,7 @@
-import os
 from pathlib import Path
 import sys
 
-from arcgis import GeoAccessor
 from arcgis.geometry import Geometry
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -65,7 +62,7 @@ def test_create_origin_destination_customer_dataframe_parquet():
     trips_x = 'coord_x'
     trips_y = 'coord_y'
     trips_dest_id = 'store_id'
-    keep_prefix = 'trips_'
+    keep_prefix = 'travel_'
 
     od_df = analysis.create_origin_destination_customer_dataframe(
         customer_points=trips_file,
@@ -75,7 +72,7 @@ def test_create_origin_destination_customer_dataframe_parquet():
         customer_keep_field_prefix=keep_prefix
     )
 
-    assert isinstance(od_df, pd.DataFrame)
+    assert len(od_df.columns) == 4
 
 
 def test_create_origin_destination_customer_dataframe_csv():
@@ -85,7 +82,7 @@ def test_create_origin_destination_customer_dataframe_csv():
     trips_x = 'coord_x'
     trips_y = 'coord_y'
     trips_dest_id = 'store_id'
-    keep_prefix = 'trips_'
+    keep_prefix = 'travel_'
 
     od_df = analysis.create_origin_destination_customer_dataframe(
         customer_points=trips_file,
@@ -95,4 +92,4 @@ def test_create_origin_destination_customer_dataframe_csv():
         customer_keep_field_prefix=keep_prefix
     )
 
-    assert isinstance(od_df, pd.DataFrame)
+    assert len(od_df.columns) == 4
