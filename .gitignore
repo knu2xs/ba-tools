@@ -99,7 +99,7 @@ target/
 testing/test_data/scratch
 
 # experimentation directory
-scratch/
+scratch
 
 # conda build directory
 conda-build/*
@@ -112,3 +112,4 @@ data/raw
 arcgis/.backups
 arcgis/ImportLog
 arcgis/Index
+arcgis/scratch
