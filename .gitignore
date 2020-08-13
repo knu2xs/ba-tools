@@ -106,4 +106,9 @@ conda-build/*
 conda-build/*.json
 conda-build/*.html
 
-data/interim/*
+data/interim
+data/raw
+
+arcgis/.backups
+arcgis/ImportLog
+arcgis/Index
