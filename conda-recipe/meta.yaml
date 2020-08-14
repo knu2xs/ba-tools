@@ -1,6 +1,6 @@
 package:
   name: ba-tools
-  version: "0.10.0-dev1"
+  version: "0.10.0-dev2"
 
 source:
   path: ../
