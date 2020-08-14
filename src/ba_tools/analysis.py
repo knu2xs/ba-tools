@@ -1,17 +1,16 @@
 """
 Methods to analyze hypotehtical scenarios.
 """
+import logging
+import os
+import pathlib
+from pathlib import Path
+from tempfile import gettempdir
 
 import arcgis
 import arcpy
 from arcgis.geometry import Point
-from arcgis.features import GeoAccessor
-import logging
-import os
 import pandas as pd
-import pathlib
-from pathlib import Path
-from tempfile import gettempdir
 
 from ._data import data
 from . import proximity
