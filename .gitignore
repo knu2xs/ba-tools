@@ -104,6 +104,7 @@ target/
 
 /data/interim/
 /data/raw/
+/data/raw/trips.csv
 
 /arcgis/.backups/
 /arcgis/ImportLog/
