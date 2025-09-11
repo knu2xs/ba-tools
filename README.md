@@ -1,43 +1,59 @@
-# BA-Tools
+# ba-tools
 
-BA-Tools, shorthand for ArcGIS Business Analyst Tools is a collection of resources combined into a succinct Python package streamlining the process of performing analysis combining quantitative geographic and machine learning methods.
+Make accessing ArcGIS Business Analyst functionality through Python a little easier.
 
-## Quickstart
+## Getting Started
 
-For the impatient, you can install this in your local environment using conda. It is a publicly available as an [installable Conda package](https://anaconda.org/knu2xs/ba-tools). However, it is highly recommended to use this in conjunction with [GeoAI-Retail](https://github.com/knu2xs/geoai-retail) to dramatically streamline the entire analysis workflow.
+1 - Clone this repo.
 
-``` bash
-> conda install -c knu2xs ba-tools
+2 - Create an environment with the requirements.
+    
+```
+        > make env
 ```
 
-## Overview and Features
+3 - Explore - If you are more into Python, a good place to start is `jupyter lab` from the root of the project, and 
+  look in the `./notebooks` directory. If GIS is more your schtick, open the project 
+  `./arcgis/ba-tools.aprx`.
 
-BA-Tool dramatically streamlines the process of data munging to be able to build a model using Machine Learning. This is a supporting package for [GeoAI-Retail](https://github.com/knu2xs/geoai-retail). 
+## Using Make - common commands
 
-BA-Tools facilitates quantitatively considering the complex interaction of geographic factors using machine learning to perform analyses for deriving human behavior insights - most notably, human behavior as it relates to retail. Especially when used in conjunction with [GeoAI-Retail](https://github.com/knu2xs/geoai-retail), BA-Tools dramatically streamlines the process of performing the requisite feature engineering using sound Geographic methods for retail forecasting. 
+Based on the pattern provided in the 
+[Cookiecutter Data Science template by Driven Data](https://drivendata.github.io/cookiecutter-data-science/) this 
+template streamlines a number of commands using the `make` command pattern.
 
-It is important to note, this package offers no opinion or guidance on creation of the model. Rather, it facilitates the process of [feature engineering](https://medium.com/mindorks/what-is-feature-engineering-for-machine-learning-d8ba3158d97a), tapping into the vast data and Geographic analysis capabilities of ArcGIS to automate much of the feature engineering required to quantitatively create Geographic factors to include in model training. With this model created, BA-Tools module also enables inferencing using the created model to evaluate the effects of adding or removing a location from the retail landscape.
+- `make env` - Clone the default ArcGIS Pro Conda environment, `arcgispro-pyu3`, add all the dependencies in
+  `environment.yml` and install the local project package using the command 
+  `python -m pip install -e ./src/src/<project_package>` so you can easily test against the package as you are 
+  developing it.
 
-## Requirements
+- `make data` - Run `./scripts/make_data.py`, which should be the data pipeline to create an output dataset.
 
-Currently, only analysis using [__ArcGIS Pro__](https://www.esri.com/en-us/arcgis/products/arcgis-pro/overview) with the [__Business Analyst__](https://www.esri.com/en-us/arcgis/products/arcgis-business-analyst/applications/desktop) extension using __locally installed United States data__ is supported. Consequently, for now, it is dependent on ArcPy and locally installed ArcGIS Business Analyst data for the United States. Depending on what use cases we run across, and have to support, international data and even full REST based analysis (not requiring ArcPy) may be supported in the future. Currently though, it is not.
+- `make pytpkg` - Create a zipped achive of the Python (`*.pyt`) toolbox located in `./arcgis`. This uses the script,
+  `./scripts/make_pyt_archive.py`, to collect the Python toolbox (`*.pyt`) along with all the supporting 
+  dependencies listed in `pyproject.toml` and `*.xml` files with the tool documentation, and put into a zipped archive 
+  ready for sharing.
 
-## Issues
+- `make docserve` - Run live MkDocs documentation server to view documentation updates at http://127.0.0.1:8000.
 
-Find a bug or want to request a new feature?  Please let us know by submitting an issue.
+- `make docs` - Build the documentation using MkDocs from files in `./docsrc` and save the output in `./docs`.
 
-## Contributing
+- `make test` - activates the environment created by the `make env` or `make env_clone` and runs all the tests in the 
+  `./testing` directory using PyTest. 
 
-Esri welcomes contributions from anyone and everyone. Please see our [guidelines for contributing](https://github.com/esri/contributing).
+## BumpVersion Cliff Notes
 
-# License - [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0)
+[Bump2Version](https://github.com/c4urself/bump2version) is preconfigured based on hints from 
+[this article on Medium](https://williamhayes.medium.com/versioning-using-bumpversion-4d13c914e9b8).
 
-Copyright 2020 Esri
+If you want to...
 
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+- apply a patch, `bumpversion patch`
+- update version with no breaking changes (minor version update), `bumpversion minor`
+- update version with breaking changes (major version update), `bumpversion major`
+- create a release (tagged in version control - Git), `bumpversion --tag release`
 
-You may obtain a copy of the License at [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
-
-Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-
-See the License for the specific language governing permissions and limitations under the License.
+<p><small>Project based on the <a target="_blank" href="https://github.com/knu2xs/cookiecutter-geoai">cookiecutter 
+GeoAI project template</a>. This template, in turn, is simply an extension and light modification of the 
+<a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project 
+template</a>. #cookiecutterdatascience</small></p>

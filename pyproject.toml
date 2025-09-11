@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools-scm>=8.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ba-tools"
+version = "0.9.1.dev0"
+authors = [
+  { name="Joel McCune (https://joelmccune.com)"},
+]
+description = "Make accessing ArcGIS Business Analyst functionality through Python a little easier."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+]
+license = {file = "LICENSE"}
+dependencies = [
+    "arcgis>=2.2.0",
+    "numpy>=1.7",
+    "pandas>=1.0.5",
+    "pyarrow>=1.0.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ba_tools"]

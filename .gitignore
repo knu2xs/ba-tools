@@ -19,7 +19,6 @@ lib64/
 parts/
 sdist/
 var/
-info/
 **/*.egg-info/
 .installed.cfg
 **/*.egg
@@ -36,33 +35,36 @@ pip-delete-this-directory.txt
 
 # Unit test / coverage reports
 htmlcov/
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
+**/*.tox/
+**/*.coverage
+**/*.coverage.*
+**/*.cache
+**/*nosetests.xml
+**/*coverage.xml
+**/*.cover
+**/*.pytest_cache
 
 # Translations
-*.mo
-*.pot
+**/*.mo
+**/*.pot
 
 # Django stuff:
-*.log
+**/*.log
 
 # Sphinx documentation
-docs/_build/
+docsrc/_build/
+docsrc/build/
 
 # PyBuilder
 target/
 
-# DotEnv configuration
+# configuration files
+**/secrets.ini
 .env
 
 # Database
-*.db
-*.rdb
+**/*.db
+**/*.rdb
 
 # Pycharm
 .idea
@@ -76,34 +78,20 @@ target/
 # Jupyter NB Checkpoints
 .ipynb_checkpoints/
 
-# exclude emf files, which are notoriously HUGE
-**/*.emf
+# exclude data from source control by default
+data/
+models/
 
 # Mac OS-specific storage files
 **/*.DS_Store
 
-# local config settings
-**/*config.py
+# ignore the caches created for ArcMap
+arcgis/Index
+arcgis/ImportLog
+arcgis/.backups
 
-# testing cache
-**/*.pytest_cache
+# make sure the environment is not included
+env/
 
-# logfiles
-**/*.log
-
-**/*.pyHistory
-
-**/*.lock
-
-# test scratch outputs
-testing/test_data/scratch
-
-# experimentation directory
-scratch/
-
-# conda build directory
-conda-build/*
-conda-build/*.json
-conda-build/*.html
-
-data/interim/*
+# exclude the docs build directory
+docs/

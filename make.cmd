@@ -1,12 +1,33 @@
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: LICENSING                                                                    :
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+::
+:: Copyright 2020 Esri
+::
+:: Licensed under the Apache License, Version 2.0 (the "License"); You
+:: may not use this file except in compliance with the License. You may
+:: obtain a copy of the License at
+::
+:: http://www.apache.org/licenses/LICENSE-2.0
+::
+:: Unless required by applicable law or agreed to in writing, software
+:: distributed under the License is distributed on an "AS IS" BASIS,
+:: WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+:: implied. See the License for the specific language governing
+:: permissions and limitations under the License.
+::
+:: A copy of the license is available in the repository's
+:: LICENSE file.
+
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 :: VARIABLES                                                                    :
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 SETLOCAL
 SET PROJECT_DIR=%cd%
-SET CONDA_PARENT=arcgispro-py3
 SET PROJECT_NAME=ba-tools
-SET ENV_NAME=ba-tools
+SET SUPPORT_LIBRARY = ba_tools
+SET CONDA_DIR="%~dp0env"
 
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 :: COMMANDS                                                                     :
@@ -15,75 +36,71 @@ SET ENV_NAME=ba-tools
 :: Jump to command
 GOTO %1
 
+:: Perform data preprocessing steps contained in the make_data.py script.
+:data
+    CALL conda run -p %CONDA_DIR% python scripts/make_data.py
+    GOTO end
+
+:: Make documentation using MkDocs!
+:docs
+    CALL conda run -p %CONDA_DIR% mkdocs build -f ./docsrc/mkdocs.yml
+    GOTO end
+
+:: MkDocs live documentation server
+:docserve
+    CALL conda run -p %CONDA_DIR% mkdocs serve -f ./docsrc/mkdocs.yml
+    GOTO end
+
 :: Build the local environment from the environment file
 :env
-    ENDLOCAL & (
+    :: Create new environment from environment file
+    CALL conda create -p %CONDA_DIR% --clone "C:\Program Files\ArcGIS\Pro\bin\Python\envs\arcgispro-py3"
+    GOTO add_dependencies
 
-        :: Run this from the ArcGIS Python Command Prompt
-        :: Clone and activate the new environment
-        CALL conda create --name "%ENV_NAME%" --clone "%CONDA_PARENT%" -y
-        CALL activate "%ENV_NAME%"
+:: Add python dependencies from environment.yml to the project environment
+:add_dependencies
+        
+    :: Add more fun stuff from environment file
+    CALL conda env update -p %CONDA_DIR% -f environment.yml
 
-        :: Install nodejs so it does not throw an error later
-        CALL conda install -y nodejs
+    :: Install the local package in development (experimental) mode
+    CALL conda run -p %CONDA_DIR% python -m pip install -e .
 
-        :: Install additional packages
-        CALL conda env update -f environment.yml
+    GOTO end
 
-        :: Install the local package in development mode
-        CALL python -m pip install -e .
+:: Start Jupyter Label
+:jupyter
+    CALL conda run -p %CONDA_DIR% python -m jupyterlab --ip=0.0.0.0 --allow-root --NotebookApp.token=""
+    GOTO end
 
-        :: Additional steps for the map widget to work in Jupyter Lab
-        CALL jupyter labextension install @jupyter-widgets/jupyterlab-manager -y
-        CALL jupyter labextension install arcgis-map-ipywidget@1.8.2 -y
-
-        :: Set the ArcGIS Pro Python environment
-        proswap "%ENV_NAME%"
-    )
-    EXIT /B
-
-:: Update the current environment with resources needed to publish the package
-:env_dev
-    ENDLOCAL & (
-
-        :: Install additional packages
-        CALL conda env update -f environment_dev.yml
-
-    )
-    EXIT /B
+:: Make *.pyt zipped archive with requirements
+:pytzip
+    CALL conda run -p %CONDA_DIR% python -m scripts/make_pyt_archive.py
+    GOTO end
 
 :: Make the package for uploading
-:build
-    ENDLOCAL & (
+:wheel
 
-        :: Build the pip package
-        CALL python setup.py sdist
+    :: Build the pip package
+    CALL conda run -p %CONDA_DIR% python -m build --wheel
 
-        :: Build conda package
-        CALL conda build ./conda-recipe --output-folder ./conda-recipe/conda-build
-
-    )
-    EXIT /B
-
-:build_upload
-    ENDLOCAL & (
-
-        :: Build the pip package
-        CALL python setup.py sdist bdist_wheel
-        CALL twine upload ./dist/*
-
-        :: Build conda package
-        CALL conda build ./conda-recipe --output-folder ./conda-recipe/conda-build
-        CALL anaconda upload ./conda-recipe/conda-build/win-64/ba-tools*.tar.bz2
-
-    )
-    EXIT /B
+    GOTO end
 
 :: Run all tests in module
 :test
-	ENDLOCAL & (
-		pytest
-	)
-	EXIT /B
+	CALL conda run -p %CONDA_DIR% pytest "%~dp0testing"
+	GOTO end
 
-EXIT /B
+:: black formatting
+:black
+    CALL conda run -p %CONDA_dIR% black src/ --verbose
+    GOTO end
+
+:lint
+    GOTO black
+
+:linter
+    GOTO black
+
+:end
+    EXIT /B

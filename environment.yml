@@ -1,38 +1,40 @@
-name: {{ cookiecutter.conda_environment_name }}
+name: ba_tools
 
 channels:
   - esri
   - conda-forge
 
 dependencies:
-  - arcgis==1.8.2
+  - appnope
+  - arcgis
+  - arcgis-mapping
+  - black>=21
   - cookiecutter
   - dask
- # - fastai==1.0.54
   - h3-py
   - jupyterlab
- # - keras-gpu==2.2.4
-  - mkdocs
- # - pillow==6.1.0
+  - jupyterlab_code_formatter
+  - nodejs
   - pip
-  - progress
-  - pylint
   - pytest
-  - python-dotenv
- # - pytorch==1.1.0
+  - pyarrow
   - pyyaml
   - scipy
- # - scikit-image==0.15.0
   - scikit-learn
   - seaborn
-  - shapely
   - swifter
- # - tensorflow-gpu==1.14.0
+  - tabulate
   - tqdm
   - pip:
     - azure-storage-blob
-    - ipykernel
-    - pyarrow
-    - sphinx
-    - sphinx-autodoc-typehints
-    - sphinx_rtd_theme
+    - boto3
+    - build
+    - bump2version
+    - mkdocs
+    - mkdocs-glightbox
+    - mkdocs-include-markdown-plugin
+    - mkdocs-jupyter
+    - mkdocs-material
+    - mkdocstrings[python]>=0.18
+    - placekey
+    - twine

@@ -1,11 +1,18 @@
-__title__ = 'ba_tools'
-__version__ = '0.9.0'
-__author__ = 'Esri'
-__license__ = 'Apache 2.0'
-__copyright__ = 'Copyright 2019 by Esri'
+"""
+Business analyst provides a single interface for interacting
+with ArcGIS Business Analyst - whether accessing Business Analyst
+functionality locally or remotely. Local access is through
+ArcGIS Pro with the Business Analyst extension and locally installed
+data. Remote access is through a connection to a Web GIS through a GIS
+object instance providing access to either ArcGIS Enterprise with
+Business Analyst or ArcGIS Online.
 
-from . import analysis
-from ._data import data
-from . import enrich
-from . import proximity
-from . import utils
+!!! note
+    Accessing enrich using ArcGIS Online _does_ consume credits.
+
+"""
+__version__ = "0.9.1.dev0"
+
+from .__main__ import BusinessAnalyst, Country
+
+__all__ = ["BusinessAnalyst", "Country"]
